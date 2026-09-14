@@ -430,7 +430,7 @@ export default function Home() {
     <>
       <header id="header">
         <nav>
-          <a href="/">ARCHIVE</a>
+          <a href="/">DUMP-ARCHIVE</a>
         </nav>
         <nav id="nav-index">INDEX</nav>
         <nav id="nav-titles" className="nav-titles">TITLE</nav>

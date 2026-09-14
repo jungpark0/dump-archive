@@ -1,7 +1,7 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "ARCHIVE",
+  title: "DUMP-ARCHIVE",
   description: "Personal photo archive",
 };
 

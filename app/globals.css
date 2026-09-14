@@ -335,7 +335,7 @@ body.is-hovering .title-list li:not(.is-hover-linked) {
         grid-row: 1;
     }
     .title-list {
-        grid-column: 8 / span 4;
+        grid-column: 8 / span 5;
         grid-row: 1;
     }
 

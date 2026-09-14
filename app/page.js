@@ -312,9 +312,35 @@ export default function Home() {
       });
     }
 
+    function syncRowHeights() {
+      const indexItems = Array.from(indexListEl.children);
+      const titleItems = Array.from(titleListEl.children);
+      indexItems.forEach((el) => {
+        el.style.minHeight = "";
+      });
+      titleItems.forEach((el) => {
+        el.style.minHeight = "";
+      });
+      indexItems.forEach((el, i) => {
+        const titleEl = titleItems[i];
+        if (!titleEl) return;
+        const h = Math.max(el.getBoundingClientRect().height, titleEl.getBoundingClientRect().height);
+        el.style.minHeight = `${h}px`;
+        titleEl.style.minHeight = `${h}px`;
+      });
+    }
+
+    let resizeRaf = null;
+    function onResize() {
+      if (resizeRaf) cancelAnimationFrame(resizeRaf);
+      resizeRaf = requestAnimationFrame(syncRowHeights);
+    }
+    window.addEventListener("resize", onResize);
+
     function refresh() {
       renderLists();
       wireInteractions();
+      syncRowHeights();
     }
 
     function compareItems(a, b) {
@@ -423,6 +449,8 @@ export default function Home() {
       document.removeEventListener("keydown", onKeyDown);
       sortDateBtn.removeEventListener("click", onSortDateClick);
       sortAlphaBtn.removeEventListener("click", onSortAlphaClick);
+      window.removeEventListener("resize", onResize);
+      if (resizeRaf) cancelAnimationFrame(resizeRaf);
     };
   }, []);
 

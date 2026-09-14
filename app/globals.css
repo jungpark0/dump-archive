@@ -48,6 +48,7 @@ header {
 
 header nav {
     cursor: pointer;
+    white-space: nowrap;
 }
 
 header nav:nth-of-type(1) {

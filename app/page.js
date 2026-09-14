@@ -85,18 +85,23 @@ export default function Home() {
         }
         popupImageStack.classList.remove("is-transitioning");
         setStackSize(item, false);
-        frontLayer.alt = item.title;
-        frontLayer.classList.add("is-loading");
-        frontLayer.style.opacity = "1";
-        frontLayer.src = item.blurSrc;
+        // Capture the element itself (not the frontLayer/backLayer variable)
+        // so this onload still targets the right DOM node even if a later
+        // navigation swaps what frontLayer/backLayer point to before this
+        // (slower) full-res load finishes.
+        const loadingLayer = frontLayer;
+        loadingLayer.alt = item.title;
+        loadingLayer.classList.add("is-loading");
+        loadingLayer.style.opacity = "1";
+        loadingLayer.src = item.blurSrc;
         backLayer.style.opacity = "0";
         backLayer.src = "";
 
         const fullImg = new Image();
         fullImg.onload = () => {
           if (currentIndex !== index) return;
-          frontLayer.src = item.fullSrc;
-          frontLayer.classList.remove("is-loading");
+          loadingLayer.src = item.fullSrc;
+          loadingLayer.classList.remove("is-loading");
         };
         fullImg.src = item.fullSrc;
 
@@ -106,9 +111,13 @@ export default function Home() {
 
       if (layerSwapTimeout) clearTimeout(layerSwapTimeout);
 
-      backLayer.alt = item.title;
-      backLayer.classList.add("is-loading");
-      backLayer.src = item.blurSrc;
+      // Same capture-the-element trick as above: backLayer becomes
+      // frontLayer once the timeout below fires, so the onload has to keep
+      // a fixed reference to the element it's actually loading into.
+      const loadingLayer = backLayer;
+      loadingLayer.alt = item.title;
+      loadingLayer.classList.add("is-loading");
+      loadingLayer.src = item.blurSrc;
 
       // Start heading the box toward the new photo's shape right away (in
       // parallel with the fade, not gated behind it) so a fast run of clicks
@@ -127,8 +136,8 @@ export default function Home() {
       const fullImg = new Image();
       fullImg.onload = () => {
         if (currentIndex !== index) return;
-        backLayer.src = item.fullSrc;
-        backLayer.classList.remove("is-loading");
+        loadingLayer.src = item.fullSrc;
+        loadingLayer.classList.remove("is-loading");
       };
       fullImg.src = item.fullSrc;
 

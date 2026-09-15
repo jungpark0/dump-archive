@@ -51,7 +51,7 @@ footer {
     left: 0;
     bottom: 0;
     width: 100%;
-    z-index: 90;
+    z-index: 110;
     background-color: #fff;
     padding: 0 0.15rem;
     display: grid;
@@ -71,6 +71,7 @@ footer div:nth-of-type(2) {
 header nav {
     cursor: pointer;
     white-space: nowrap;
+    width: fit-content;
 }
 
 header nav:nth-of-type(1) {

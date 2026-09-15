@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import Link from "next/link";
 
 const SANITY_PROJECT_ID = "eg4pfiee";
 const SANITY_DATASET = "production";
@@ -467,7 +468,7 @@ export default function Home() {
     <>
       <header id="header">
         <nav>
-          <a href="/">DUMP-ARCHIVE</a>
+          <Link href="/">DUMP-ARCHIVE</Link>
         </nav>
         <nav id="nav-index">INDEX</nav>
         <nav id="nav-titles" className="nav-titles">TITLE</nav>

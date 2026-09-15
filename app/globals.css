@@ -68,6 +68,10 @@ footer div:nth-of-type(2) {
     grid-row: 1;
 }
 
+.popup-overlay.is-active ~ footer {
+    background-color: transparent;
+}
+
 header nav {
     cursor: pointer;
     white-space: nowrap;

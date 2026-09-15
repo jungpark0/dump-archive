@@ -144,12 +144,15 @@ body.is-titles-open .sort-controls {
     list-style: none;
     opacity: 0;
     pointer-events: none;
+    max-height: 0;
+    overflow: hidden;
     transition: opacity 0.3s ease;
 }
 
 body.is-index-open .index-list {
     opacity: 1;
     pointer-events: auto;
+    max-height: none;
 }
 
 .index-list a {
@@ -186,12 +189,15 @@ body.is-index-open .nav-titles {
     list-style: none;
     opacity: 0;
     pointer-events: none;
+    max-height: 0;
+    overflow: hidden;
     transition: opacity 0.3s ease;
 }
 
 body.is-titles-open .title-list {
     opacity: 1;
     pointer-events: auto;
+    max-height: none;
 }
 
 .title-list li {

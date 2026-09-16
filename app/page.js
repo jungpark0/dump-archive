@@ -26,6 +26,7 @@ export default function Home() {
     const titleListEl = document.getElementById("title-list");
     const sortDateBtn = document.getElementById("sort-date");
     const sortAlphaBtn = document.getElementById("sort-alpha");
+    const contentEl = document.getElementById("content");
 
     let originalItems = [];
     let items = [];
@@ -34,17 +35,30 @@ export default function Home() {
     let sortField = "date";
     let sortDir = "asc";
 
+    function updateContentMinHeight() {
+      let needed = 0;
+      if (document.body.classList.contains("is-index-open")) {
+        needed = Math.max(needed, indexListEl.scrollHeight);
+      }
+      if (document.body.classList.contains("is-titles-open")) {
+        needed = Math.max(needed, titleListEl.scrollHeight);
+      }
+      contentEl.style.minHeight = needed ? `${needed}px` : "";
+    }
+
     function onNavIndexClick(e) {
       e.preventDefault();
       document.body.classList.toggle("is-index-open");
       if (!document.body.classList.contains("is-index-open")) {
         document.body.classList.remove("is-titles-open");
       }
+      updateContentMinHeight();
     }
 
     function onNavTitlesClick(e) {
       e.preventDefault();
       document.body.classList.toggle("is-titles-open");
+      updateContentMinHeight();
     }
 
     navIndex.addEventListener("click", onNavIndexClick);
@@ -446,6 +460,53 @@ export default function Home() {
 
     loadPhotos();
 
+    // Same aspect ratio as thumb 001.jpg (700x525, 4:3).
+    const CONTOUR_SAME_RATIO_AS_001 = [
+      "001", "002", "003", "004", "006", "007", "008", "009", "010",
+      "011", "012", "013", "014", "015", "018", "019", "020", "021",
+      "022", "023", "024", "025", "026", "027", "028", "031", "032",
+      "034", "035", "037", "039", "052",
+    ];
+
+    function shuffle(arr) {
+      const a = arr.slice();
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    function renderContourGrid() {
+      const GRID_COLS = 3;
+      const GRID_ROWS = 5;
+      const FILL_COUNT = 5;
+
+      const positions = [];
+      for (let r = 0; r < GRID_ROWS; r++) {
+        for (let c = 0; c < GRID_COLS; c++) {
+          positions.push({ row: r + 1, col: 5 + c });
+        }
+      }
+
+      const chosenPositions = shuffle(positions).slice(0, FILL_COUNT);
+      const chosenPhotos = shuffle(CONTOUR_SAME_RATIO_AS_001).slice(0, FILL_COUNT);
+
+      chosenPositions.forEach((pos, i) => {
+        const num = chosenPhotos[i];
+        const img = document.createElement("img");
+        img.className = "contour-photo";
+        img.src = `/img/contour/${num}.jpg`;
+        img.alt = "";
+        img.style.gridArea = `${pos.row} / ${pos.col} / auto / span 1`;
+        contentEl.appendChild(img);
+        contourImgs.push(img);
+      });
+    }
+
+    const contourImgs = [];
+    renderContourGrid();
+
     return () => {
       cancelled = true;
       if (layerSwapTimeout) clearTimeout(layerSwapTimeout);
@@ -461,6 +522,7 @@ export default function Home() {
       sortAlphaBtn.removeEventListener("click", onSortAlphaClick);
       window.removeEventListener("resize", onResize);
       if (resizeRaf) cancelAnimationFrame(resizeRaf);
+      contourImgs.forEach((img) => img.remove());
     };
   }, []);
 

@@ -39,6 +39,8 @@ header {
 }
 
 .content {
+    position: relative;
+    align-content: start;
     margin-top: 30px;
     margin-bottom: 30px;
     padding: 0 0.15rem;
@@ -141,23 +143,34 @@ body.is-titles-open .sort-controls {
     grid-row: 1;
 }
 
+.contour-photo {
+    display: block;
+    width: calc(100% - 5px);
+    height: auto;
+    margin: 2.5px;
+    filter: grayscale(100%);
+    opacity: 0.6;
+    z-index: -1;
+}
+
 .index-list {
     grid-column: 4 / span 1;
     grid-row: 1;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
     margin: 0;
     padding: 0;
     list-style: none;
     opacity: 0;
     pointer-events: none;
-    max-height: 0;
-    overflow: hidden;
     transition: opacity 0.3s ease;
 }
 
 body.is-index-open .index-list {
     opacity: 1;
     pointer-events: auto;
-    max-height: none;
 }
 
 .index-list a {
@@ -189,20 +202,21 @@ body.is-index-open .nav-titles {
 .title-list {
     grid-column: 5 / span 8;
     grid-row: 1;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
     margin: 0;
     padding: 0;
     list-style: none;
     opacity: 0;
     pointer-events: none;
-    max-height: 0;
-    overflow: hidden;
     transition: opacity 0.3s ease;
 }
 
 body.is-titles-open .title-list {
     opacity: 1;
     pointer-events: auto;
-    max-height: none;
 }
 
 .title-list li {
@@ -346,6 +360,10 @@ body.is-hovering .title-list li:not(.is-hover-linked) {
 }
 
 @media (max-width: 767px) {
+    .contour-photo {
+        display: none;
+    }
+
     header nav:nth-of-type(1) {
         grid-column: 1 / span 2;
         grid-row: 1;

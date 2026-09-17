@@ -22,11 +22,13 @@ export default function Home() {
     const peekImg = document.getElementById("peekImg");
     const navIndex = document.getElementById("nav-index");
     const navTitles = document.getElementById("nav-titles");
+    const navIntro = document.getElementById("nav-intro");
     const indexListEl = document.getElementById("index-list");
     const titleListEl = document.getElementById("title-list");
     const sortDateBtn = document.getElementById("sort-date");
     const sortAlphaBtn = document.getElementById("sort-alpha");
     const contentEl = document.getElementById("content");
+    const textEl = document.getElementById("intro-text");
 
     let originalItems = [];
     let items = [];
@@ -42,6 +44,9 @@ export default function Home() {
       }
       if (document.body.classList.contains("is-titles-open")) {
         needed = Math.max(needed, titleListEl.scrollHeight);
+      }
+      if (document.body.classList.contains("is-intro-open")) {
+        needed = Math.max(needed, textEl.scrollHeight);
       }
       contentEl.style.minHeight = needed ? `${needed}px` : "";
     }
@@ -61,8 +66,15 @@ export default function Home() {
       updateContentMinHeight();
     }
 
+    function onNavIntroClick(e) {
+      e.preventDefault();
+      document.body.classList.toggle("is-intro-open");
+      updateContentMinHeight();
+    }
+
     navIndex.addEventListener("click", onNavIndexClick);
     navTitles.addEventListener("click", onNavTitlesClick);
+    navIntro.addEventListener("click", onNavIntroClick);
 
     function computeContainedSize(naturalW, naturalH) {
       const maxW = window.innerWidth * 0.75;
@@ -460,58 +472,12 @@ export default function Home() {
 
     loadPhotos();
 
-    // Same aspect ratio as thumb 001.jpg (700x525, 4:3).
-    const CONTOUR_SAME_RATIO_AS_001 = [
-      "001", "002", "003", "004", "006", "007", "008", "009", "010",
-      "011", "012", "013", "014", "015", "018", "019", "020", "021",
-      "022", "023", "024", "025", "026", "027", "028", "031", "032",
-      "034", "035", "037", "039", "052",
-    ];
-
-    function shuffle(arr) {
-      const a = arr.slice();
-      for (let i = a.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [a[i], a[j]] = [a[j], a[i]];
-      }
-      return a;
-    }
-
-    function renderContourGrid() {
-      const GRID_COLS = 3;
-      const GRID_ROWS = 5;
-      const FILL_COUNT = 5;
-
-      const positions = [];
-      for (let r = 0; r < GRID_ROWS; r++) {
-        for (let c = 0; c < GRID_COLS; c++) {
-          positions.push({ row: r + 1, col: 5 + c });
-        }
-      }
-
-      const chosenPositions = shuffle(positions).slice(0, FILL_COUNT);
-      const chosenPhotos = shuffle(CONTOUR_SAME_RATIO_AS_001).slice(0, FILL_COUNT);
-
-      chosenPositions.forEach((pos, i) => {
-        const num = chosenPhotos[i];
-        const img = document.createElement("img");
-        img.className = "contour-photo";
-        img.src = `/img/contour/${num}.jpg`;
-        img.alt = "";
-        img.style.gridArea = `${pos.row} / ${pos.col} / auto / span 1`;
-        contentEl.appendChild(img);
-        contourImgs.push(img);
-      });
-    }
-
-    const contourImgs = [];
-    renderContourGrid();
-
     return () => {
       cancelled = true;
       if (layerSwapTimeout) clearTimeout(layerSwapTimeout);
       navIndex.removeEventListener("click", onNavIndexClick);
       navTitles.removeEventListener("click", onNavTitlesClick);
+      navIntro.removeEventListener("click", onNavIntroClick);
       popupImageStack.removeEventListener("mousemove", onStackMouseMove);
       popupImageStack.removeEventListener("click", onStackClick);
       document.removeEventListener("mousemove", onDocMouseMove);
@@ -522,7 +488,6 @@ export default function Home() {
       sortAlphaBtn.removeEventListener("click", onSortAlphaClick);
       window.removeEventListener("resize", onResize);
       if (resizeRaf) cancelAnimationFrame(resizeRaf);
-      contourImgs.forEach((img) => img.remove());
     };
   }, []);
 
@@ -531,6 +496,7 @@ export default function Home() {
       <header id="header">
         <nav>
           <Link href="/">DUMP-ARCHIVE</Link>
+          <span id="nav-intro" className="intro-toggle"></span>
         </nav>
         <nav id="nav-index">INDEX</nav>
         <nav id="nav-titles" className="nav-titles">TITLE</nav>
@@ -542,8 +508,8 @@ export default function Home() {
       </header>
 
       <div className="content" id="content">
-        <div className="text">
-          <p></p>
+        <div className="text" id="intro-text">
+          <p>An archive — some shot, some made, some liked.</p>
         </div>
 
         <ul className="index-list" id="index-list"></ul>

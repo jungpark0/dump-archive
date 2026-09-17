@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect } from "react";
-import Link from "next/link";
 
 const SANITY_PROJECT_ID = "eg4pfiee";
 const SANITY_DATASET = "production";
@@ -23,8 +22,10 @@ export default function Home() {
     const navIndex = document.getElementById("nav-index");
     const navTitles = document.getElementById("nav-titles");
     const navIntro = document.getElementById("nav-intro");
+    const navLog = document.getElementById("nav-log");
     const indexListEl = document.getElementById("index-list");
     const titleListEl = document.getElementById("title-list");
+    const logListEl = document.getElementById("log-list");
     const sortDateBtn = document.getElementById("sort-date");
     const sortAlphaBtn = document.getElementById("sort-alpha");
     const contentEl = document.getElementById("content");
@@ -48,14 +49,24 @@ export default function Home() {
       if (document.body.classList.contains("is-intro-open")) {
         needed = Math.max(needed, textEl.scrollHeight);
       }
+      if (document.body.classList.contains("is-log-open")) {
+        needed = Math.max(needed, logListEl.scrollHeight);
+      }
       contentEl.style.minHeight = needed ? `${needed}px` : "";
+    }
+
+    // The intro text and the INDEX group share the same area, so only one can be open at a time.
+    function closeIndex() {
+      document.body.classList.remove("is-index-open", "is-titles-open", "is-log-open");
     }
 
     function onNavIndexClick(e) {
       e.preventDefault();
-      document.body.classList.toggle("is-index-open");
-      if (!document.body.classList.contains("is-index-open")) {
-        document.body.classList.remove("is-titles-open");
+      if (document.body.classList.contains("is-index-open")) {
+        closeIndex();
+      } else {
+        document.body.classList.add("is-index-open");
+        document.body.classList.remove("is-intro-open");
       }
       updateContentMinHeight();
     }
@@ -69,12 +80,22 @@ export default function Home() {
     function onNavIntroClick(e) {
       e.preventDefault();
       document.body.classList.toggle("is-intro-open");
+      if (document.body.classList.contains("is-intro-open")) {
+        closeIndex();
+      }
+      updateContentMinHeight();
+    }
+
+    function onNavLogClick(e) {
+      e.preventDefault();
+      document.body.classList.toggle("is-log-open");
       updateContentMinHeight();
     }
 
     navIndex.addEventListener("click", onNavIndexClick);
     navTitles.addEventListener("click", onNavTitlesClick);
     navIntro.addEventListener("click", onNavIntroClick);
+    navLog.addEventListener("click", onNavLogClick);
 
     function computeContainedSize(naturalW, naturalH) {
       const maxW = window.innerWidth * 0.75;
@@ -292,9 +313,16 @@ export default function Home() {
         .map((it) => `<li data-id="${it.id}"><a href="${it.fullSrc}"><span class="num">${it.id}</span></a></li>`)
         .join("");
       const titleHtml = items.map((it) => `<li data-id="${it.id}">${escapeHtml(it.title)}</li>`).join("");
+      const logHtml = items
+        .map(
+          (it) =>
+            `<li data-id="${it.id}"><span class="log-date">${it.when || "-"}</span> | ${escapeHtml(it.where) || "-"}</li>`
+        )
+        .join("");
 
       flipRender(indexListEl, indexHtml);
       flipRender(titleListEl, titleHtml);
+      flipRender(logListEl, logHtml);
     }
 
     function wireInteractions() {
@@ -308,11 +336,18 @@ export default function Home() {
         titleItemById.set(li.dataset.id, li);
       });
 
+      const logItemById = new Map();
+      logListEl.querySelectorAll("li").forEach((li) => {
+        logItemById.set(li.dataset.id, li);
+      });
+
       function setHoverLinked(id, on) {
         const link = indexLinkById.get(id);
         const titleItem = titleItemById.get(id);
+        const logItem = logItemById.get(id);
         if (link) link.classList.toggle("is-hover-linked", on);
         if (titleItem) titleItem.classList.toggle("is-hover-linked", on);
+        if (logItem) logItem.classList.toggle("is-hover-linked", on);
         document.body.classList.toggle("is-hovering", on);
       }
 
@@ -332,7 +367,7 @@ export default function Home() {
         });
       });
 
-      titleItemById.forEach((li, id) => {
+      [...titleItemById, ...logItemById].forEach(([id, li]) => {
         li.addEventListener("mouseenter", () => {
           showPeek(id);
           setHoverLinked(id, true);
@@ -349,20 +384,16 @@ export default function Home() {
     }
 
     function syncRowHeights() {
-      const indexItems = Array.from(indexListEl.children);
-      const titleItems = Array.from(titleListEl.children);
-      indexItems.forEach((el) => {
+      const columns = [indexListEl, titleListEl, logListEl].map((listEl) => Array.from(listEl.children));
+      columns.flat().forEach((el) => {
         el.style.minHeight = "";
       });
-      titleItems.forEach((el) => {
-        el.style.minHeight = "";
-      });
-      indexItems.forEach((el, i) => {
-        const titleEl = titleItems[i];
-        if (!titleEl) return;
-        const h = Math.max(el.getBoundingClientRect().height, titleEl.getBoundingClientRect().height);
-        el.style.minHeight = `${h}px`;
-        titleEl.style.minHeight = `${h}px`;
+      columns[0].forEach((_, i) => {
+        const row = columns.map((col) => col[i]).filter(Boolean);
+        const h = Math.max(...row.map((el) => el.getBoundingClientRect().height));
+        row.forEach((el) => {
+          el.style.minHeight = `${h}px`;
+        });
       });
     }
 
@@ -466,6 +497,7 @@ export default function Home() {
       indexById = new Map(items.map((it, i) => [it.id, i]));
 
       refresh();
+      navLog.textContent = `${String(originalItems.length).padStart(3, "0")} ITEMS, UNSORTED`;
       updateSortButtonsUI();
       prefetchThumbs();
     }
@@ -478,6 +510,7 @@ export default function Home() {
       navIndex.removeEventListener("click", onNavIndexClick);
       navTitles.removeEventListener("click", onNavTitlesClick);
       navIntro.removeEventListener("click", onNavIntroClick);
+      navLog.removeEventListener("click", onNavLogClick);
       popupImageStack.removeEventListener("mousemove", onStackMouseMove);
       popupImageStack.removeEventListener("click", onStackClick);
       document.removeEventListener("mousemove", onDocMouseMove);
@@ -494,12 +527,10 @@ export default function Home() {
   return (
     <>
       <header id="header">
-        <nav>
-          <Link href="/">DUMP-ARCHIVE</Link>
-          <span id="nav-intro" className="intro-toggle"></span>
-        </nav>
+        <nav id="nav-intro">DUMP-ARCHIVE</nav>
         <nav id="nav-index">INDEX</nav>
         <nav id="nav-titles" className="nav-titles">TITLE</nav>
+        <nav id="nav-log" className="nav-log"></nav>
 
         <div className="sort-controls" id="sort-controls">
           <button type="button" className="sort-btn" id="sort-date">DATE</button>
@@ -509,12 +540,14 @@ export default function Home() {
 
       <div className="content" id="content">
         <div className="text" id="intro-text">
-          <p>An archive — some shot, some made, some liked.</p>
+          <p>This archive is where all kinds of images just get dumped in, no sorting, no filtering. (Literally a dump.)</p>
         </div>
 
         <ul className="index-list" id="index-list"></ul>
 
         <ul className="title-list" id="title-list"></ul>
+
+        <ul className="log-list" id="log-list"></ul>
       </div>
 
       <figure className="peek" id="peek" aria-hidden="true">

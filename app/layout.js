@@ -18,7 +18,7 @@ export default function RootLayout({ children }) {
         <link rel="preconnect" href="https://cdn.sanity.io" />
         <link rel="preconnect" href="https://eg4pfiee.api.sanity.io" />
       </head>
-      <body>{children}</body>
+      <body className="is-intro-open">{children}</body>
     </html>
   );
 }

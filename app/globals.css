@@ -62,19 +62,19 @@ header nav:nth-of-type(3) {
     grid-column: 5 / span 2;
 }
 
-/* 055 ITEMS, UNSORTED [+] */
+/* 000 ITEMS, UNSORTED [+] */
 header nav:nth-of-type(4) {
     grid-column: 9 / span 2;
 }
 
-#nav-intro::after,
+#nav-title::after,
 #nav-index::after,
 #nav-titles::after,
 #nav-log::after {
     content: " [+]";
 }
 
-body.is-intro-open #nav-intro::after,
+body.is-intro-open #nav-title::after,
 body.is-index-open #nav-index::after,
 body.is-titles-open #nav-titles::after,
 body.is-log-open #nav-log::after {
@@ -94,6 +94,25 @@ body.is-index-open .nav-titles {
     pointer-events: auto;
 }
 
+/* DUMP-ARCHIVE: plain text until INDEX has been opened once, then its [+]/[-] fades in and it becomes clickable */
+#nav-title {
+    pointer-events: none;
+}
+
+#nav-title::after {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    will-change: opacity;
+}
+
+body.has-opened-index #nav-title {
+    pointer-events: auto;
+}
+
+body.has-opened-index #nav-title::after {
+    opacity: 1;
+}
+
 /* 055 ITEMS, UNSORTED: plain text until INDEX is open, then [+] fades in and it becomes clickable */
 #nav-log {
     pointer-events: none;
@@ -111,6 +130,23 @@ body.is-index-open #nav-log {
 
 body.is-index-open #nav-log::after {
     opacity: 1;
+}
+
+/* rolling digits for the item count on page load (15px = one line) */
+.odometer-digit {
+    display: inline-block;
+    height: 15px;
+    overflow: hidden;
+    vertical-align: top;
+}
+
+.odometer-strip {
+    display: block;
+    transition: transform 1.2s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.odometer-strip span {
+    display: block;
 }
 
 /* ---------- sort controls ---------- */
@@ -163,6 +199,7 @@ body.is-titles-open .sort-btn {
 
 /* intro text + lists: all hidden until their nav is toggled open */
 .content .text,
+.dump-trigger,
 .index-list,
 .title-list,
 .log-list {
@@ -176,6 +213,7 @@ body.is-titles-open .sort-btn {
 }
 
 body.is-intro-open .content .text,
+body.is-index-open .dump-trigger,
 body.is-index-open .index-list,
 body.is-titles-open .title-list,
 body.is-log-open .log-list {
@@ -186,6 +224,39 @@ body.is-log-open .log-list {
 .content .text {
     grid-column: 1 / span 6;
     width: 100%;
+}
+
+/* (Literally a dump.): sits under DUMP-ARCHIVE while INDEX is open and drops the page on click */
+.dump-trigger {
+    grid-column: 1 / span 3;
+    width: fit-content;
+    cursor: pointer;
+}
+
+.dump-trigger:hover {
+    text-decoration: underline;
+}
+
+/* gravity drop: content is hidden and replaced by one falling span per word */
+body.is-dumped .content {
+    visibility: hidden;
+}
+
+.dump-layer {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    overflow: hidden;
+}
+
+.dump-word {
+    position: absolute;
+    top: 0;
+    left: 0;
+    white-space: pre;
+    user-select: none;
+    cursor: grab;
+    will-change: transform;
 }
 
 .index-list,
@@ -270,7 +341,12 @@ footer div:nth-of-type(1) {
 }
 
 footer div:nth-of-type(2) {
-    grid-column: 4 / span 9;
+    grid-column: 4 / span 5;
+}
+
+/* LAST DUMP: lines up with 055 ITEMS in the header */
+.last-dump {
+    grid-column: 9 / span 4;
 }
 
 /* ---------- peek (hover thumbnail) ---------- */
@@ -450,6 +526,10 @@ footer div:nth-of-type(2) {
 
     footer div:nth-of-type(2) {
         grid-column: 1 / span 12;
+    }
+
+    .last-dump {
+        display: none;
     }
 
     /* popup meta */

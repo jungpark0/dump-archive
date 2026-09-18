@@ -21,7 +21,7 @@ export default function Home() {
     const peekImg = document.getElementById("peekImg");
     const navIndex = document.getElementById("nav-index");
     const navTitles = document.getElementById("nav-titles");
-    const navIntro = document.getElementById("nav-intro");
+    const navTitle = document.getElementById("nav-title");
     const navLog = document.getElementById("nav-log");
     const indexListEl = document.getElementById("index-list");
     const titleListEl = document.getElementById("title-list");
@@ -65,7 +65,7 @@ export default function Home() {
       if (document.body.classList.contains("is-index-open")) {
         closeIndex();
       } else {
-        document.body.classList.add("is-index-open");
+        document.body.classList.add("is-index-open", "has-opened-index");
         document.body.classList.remove("is-intro-open");
       }
       updateContentMinHeight();
@@ -77,7 +77,7 @@ export default function Home() {
       updateContentMinHeight();
     }
 
-    function onNavIntroClick(e) {
+    function onNavTitleClick(e) {
       e.preventDefault();
       document.body.classList.toggle("is-intro-open");
       if (document.body.classList.contains("is-intro-open")) {
@@ -94,7 +94,7 @@ export default function Home() {
 
     navIndex.addEventListener("click", onNavIndexClick);
     navTitles.addEventListener("click", onNavTitlesClick);
-    navIntro.addEventListener("click", onNavIntroClick);
+    navTitle.addEventListener("click", onNavTitleClick);
     navLog.addEventListener("click", onNavLogClick);
 
     function computeContainedSize(naturalW, naturalH) {
@@ -471,7 +471,7 @@ export default function Home() {
     let cancelled = false;
 
     async function loadPhotos() {
-      const groq = '*[_type=="photo"]{num,title,where,when,note,"url":image.asset->url}|order(num asc)';
+      const groq = '*[_type=="photo"]{num,title,where,when,note,_createdAt,"url":image.asset->url}|order(num asc)';
       const url = `https://${SANITY_PROJECT_ID}.api.sanity.io/v2024-01-01/data/query/${SANITY_DATASET}?query=${encodeURIComponent(groq)}`;
 
       const res = await fetch(url);
@@ -497,19 +497,186 @@ export default function Home() {
       indexById = new Map(items.map((it, i) => [it.id, i]));
 
       refresh();
-      navLog.textContent = `${String(originalItems.length).padStart(3, "0")} ITEMS, UNSORTED`;
+      rollItemCount(originalItems.length);
+      showLastDump(result);
       updateSortButtonsUI();
       prefetchThumbs();
     }
 
+    // Odometer-style roll: each digit spins through a stacked 0-9 strip (more
+    // spins the further right it is) and lands on its target, staggered left to right.
+    let rollTimeout = null;
+    function rollItemCount(total) {
+      const LABEL = " ITEMS, UNSORTED";
+      const DURATION_MS = 1200;
+      const STAGGER_MS = 120;
+      const target = String(total).padStart(3, "0");
+      const finalText = target + LABEL;
+
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        navLog.textContent = finalText;
+        return;
+      }
+
+      navLog.textContent = "";
+      const strips = [...target].map((digit, i) => {
+        const cell = document.createElement("span");
+        cell.className = "odometer-digit";
+        const strip = document.createElement("span");
+        strip.className = "odometer-strip";
+        strip.innerHTML = Array.from({ length: 30 }, (_, k) => `<span>${k % 10}</span>`).join("");
+        strip.style.transitionDelay = `${i * STAGGER_MS}ms`;
+        cell.appendChild(strip);
+        navLog.appendChild(cell);
+        return { strip, stop: i * 10 + Number(digit) };
+      });
+      navLog.appendChild(document.createTextNode(LABEL));
+
+      void navLog.offsetWidth;
+      strips.forEach(({ strip, stop }) => {
+        strip.style.transform = `translateY(${-stop * 15}px)`;
+      });
+
+      // Swap back to plain text so the nav's hover underline covers the digits again.
+      rollTimeout = setTimeout(() => {
+        navLog.textContent = finalText;
+      }, DURATION_MS + (target.length - 1) * STAGGER_MS);
+    }
+
+    // Date the most recent photo was added to Sanity, in the visitor's local time.
+    function showLastDump(docs) {
+      const latest = docs.reduce((max, d) => (d._createdAt > max ? d._createdAt : max), "");
+      if (!latest) return;
+      document.getElementById("last-dump").textContent = `LAST DUMP ${new Date(latest).toLocaleDateString("sv-SE")}`;
+    }
+
     loadPhotos();
+
+    // ---------- gravity drop: "(Literally a dump.)" ----------
+
+    const dumpTrigger = document.getElementById("dump-trigger");
+    const headerEl = document.getElementById("header");
+    let dumpState = null;
+
+    function collectWords(el) {
+      const words = [];
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      let node;
+      while ((node = walker.nextNode())) {
+        for (const m of node.textContent.matchAll(/\S+/g)) {
+          const range = document.createRange();
+          range.setStart(node, m.index);
+          range.setEnd(node, m.index + m[0].length);
+          const rect = range.getBoundingClientRect();
+          if (rect.width && rect.height) words.push({ text: m[0], rect });
+        }
+      }
+      return words;
+    }
+
+    async function startDump() {
+      if (dumpState) return;
+      const state = {};
+      dumpState = state;
+      const Matter = (await import("matter-js")).default;
+      if (dumpState !== state) return;
+
+      const sources = [dumpTrigger, indexListEl];
+      if (document.body.classList.contains("is-titles-open")) sources.push(titleListEl);
+      if (document.body.classList.contains("is-log-open")) sources.push(logListEl);
+      const words = sources.flatMap(collectWords);
+
+      const { Engine, Bodies, Body, Composite, Mouse, MouseConstraint } = Matter;
+      const engine = Engine.create();
+      const width = window.innerWidth;
+      const floorY = window.innerHeight - document.querySelector("footer").offsetHeight;
+      const WALL = 200;
+      Composite.add(engine.world, [
+        Bodies.rectangle(width / 2, floorY + WALL / 2, width * 2, WALL, { isStatic: true }),
+        Bodies.rectangle(-WALL / 2, 0, WALL, floorY * 6, { isStatic: true }),
+        Bodies.rectangle(width + WALL / 2, 0, WALL, floorY * 6, { isStatic: true }),
+      ]);
+
+      const layer = document.createElement("div");
+      layer.className = "dump-layer";
+      const bodies = words.map(({ text, rect }) => {
+        // Rows scrolled below the fold rain in from above instead of spawning under the floor.
+        const y = rect.bottom > floorY ? -rect.height - Math.random() * floorY : rect.top + rect.height / 2;
+        const body = Bodies.rectangle(rect.left + rect.width / 2, y, rect.width, rect.height, {
+          restitution: 0.1,
+          friction: 0.6,
+          frictionAir: 0.01,
+        });
+        Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.02);
+
+        const el = document.createElement("span");
+        el.className = "dump-word";
+        el.textContent = text;
+        el.style.width = `${rect.width}px`;
+        el.style.height = `${rect.height}px`;
+        el.style.lineHeight = `${rect.height}px`;
+        layer.appendChild(el);
+        return { body, el, w: rect.width, h: rect.height };
+      });
+      Composite.add(
+        engine.world,
+        bodies.map((b) => b.body)
+      );
+
+      document.body.appendChild(layer);
+      document.body.classList.add("is-dumped");
+      hidePeek();
+
+      const mouse = Mouse.create(layer);
+      // Matter grabs wheel events by default, which would block page scrolling.
+      mouse.element.removeEventListener("wheel", mouse.mousewheel);
+      Composite.add(engine.world, MouseConstraint.create(engine, { mouse, constraint: { stiffness: 0.2 } }));
+
+      let last = performance.now();
+      const step = (now) => {
+        Engine.update(engine, Math.min(now - last, 32));
+        last = now;
+        bodies.forEach(({ body, el, w, h }) => {
+          el.style.transform = `translate(${body.position.x - w / 2}px, ${body.position.y - h / 2}px) rotate(${body.angle}rad)`;
+        });
+        state.raf = requestAnimationFrame(step);
+      };
+      Object.assign(state, { engine, layer, Matter });
+      state.raf = requestAnimationFrame(step);
+    }
+
+    function endDump() {
+      if (!dumpState) return;
+      const { raf, layer, engine, Matter } = dumpState;
+      dumpState = null;
+      if (raf) cancelAnimationFrame(raf);
+      if (layer) layer.remove();
+      if (engine) Matter.Engine.clear(engine);
+      document.body.classList.remove("is-dumped");
+    }
+
+    function onDumpKeyDown(e) {
+      if (e.key === "Escape") endDump();
+    }
+
+    dumpTrigger.addEventListener("click", startDump);
+    // Any header click (nav toggles, sort) puts the page back together first.
+    headerEl.addEventListener("click", endDump, true);
+    window.addEventListener("resize", endDump);
+    document.addEventListener("keydown", onDumpKeyDown);
 
     return () => {
       cancelled = true;
       if (layerSwapTimeout) clearTimeout(layerSwapTimeout);
+      if (rollTimeout) clearTimeout(rollTimeout);
+      endDump();
+      dumpTrigger.removeEventListener("click", startDump);
+      headerEl.removeEventListener("click", endDump, true);
+      window.removeEventListener("resize", endDump);
+      document.removeEventListener("keydown", onDumpKeyDown);
       navIndex.removeEventListener("click", onNavIndexClick);
       navTitles.removeEventListener("click", onNavTitlesClick);
-      navIntro.removeEventListener("click", onNavIntroClick);
+      navTitle.removeEventListener("click", onNavTitleClick);
       navLog.removeEventListener("click", onNavLogClick);
       popupImageStack.removeEventListener("mousemove", onStackMouseMove);
       popupImageStack.removeEventListener("click", onStackClick);
@@ -527,10 +694,10 @@ export default function Home() {
   return (
     <>
       <header id="header">
-        <nav id="nav-intro">DUMP-ARCHIVE</nav>
+        <nav id="nav-title">DUMP-ARCHIVE</nav>
         <nav id="nav-index">INDEX</nav>
         <nav id="nav-titles" className="nav-titles">TITLE</nav>
-        <nav id="nav-log" className="nav-log"></nav>
+        <nav id="nav-log" className="nav-log">000 ITEMS, UNSORTED</nav>
 
         <div className="sort-controls" id="sort-controls">
           <button type="button" className="sort-btn" id="sort-date">DATE</button>
@@ -541,7 +708,10 @@ export default function Home() {
       <div className="content" id="content">
         <div className="text" id="intro-text">
           <p>This archive is where all kinds of images just get dumped in, no sorting, no filtering. (Literally a dump.)</p>
+          <p className="colophon">Built with NEXT.JS · Content ON SANITY</p>
         </div>
+
+        <p className="dump-trigger" id="dump-trigger">(Literally a dump.)</p>
 
         <ul className="index-list" id="index-list"></ul>
 
@@ -580,6 +750,7 @@ export default function Home() {
         <div className="footer">
           <span>© 2026 JUNGPARK. ALL RIGHTS RESERVED</span>
         </div>
+        <div className="last-dump" id="last-dump"></div>
       </footer>
     </>
   );

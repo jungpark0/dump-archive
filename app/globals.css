@@ -263,6 +263,8 @@ body.is-dumped .content {
     white-space: pre;
     cursor: grab;
     will-change: transform;
+    /* a word from a dimmed row starts that colour and eases back to black */
+    transition: color 0.6s ease;
 }
 
 .colophon {
@@ -316,6 +318,21 @@ body.is-dumped .content {
 .log-list li:hover,
 .log-list li.is-hover-linked {
     text-decoration: underline;
+}
+
+/* a row you have already opened. The one trace a dump allows: it comes from
+   the visitor's own path, not from the archive sorting itself */
+.index-list a.is-seen,
+.title-list li.is-seen,
+.log-list li.is-seen {
+    color: #999;
+}
+
+/* the row under the cursor comes back to black, seen or not */
+.index-list a.is-seen.is-hover-linked,
+.title-list li.is-seen.is-hover-linked,
+.log-list li.is-seen.is-hover-linked {
+    color: rgb(0, 0, 0);
 }
 
 body.is-hovering .index-list a:not(.is-hover-linked),
@@ -436,6 +453,18 @@ footer div:nth-of-type(2) {
     object-fit: cover;
 }
 
+/* zoom: the photo as large as the window takes, never past its edges.
+   Clicking it is the way back out, so the cursor says so — the left/right
+   halves stop paging while it is zoomed. The padding that clears the meta row
+   is set on the element, since a long note changes how much is needed. */
+.popup-overlay.is-zoomed {
+    padding-bottom: 30px;
+}
+
+.popup-overlay.is-zoomed .popup-image-stack {
+    cursor: zoom-out;
+}
+
 /* popup meta (num / title / where / when / note) */
 
 .popup-meta {
@@ -457,6 +486,21 @@ footer div:nth-of-type(2) {
 .popup-meta-numtitle {
     grid-column: 2 / span 2;
     grid-row: 1;
+}
+
+.popup-zoom {
+    display: block;
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.popup-zoom:hover {
+    text-decoration: underline;
 }
 
 .popup-meta-wherewhen {

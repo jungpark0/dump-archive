@@ -21,6 +21,8 @@ export default function Home() {
     let layerSwapTimeout = null;
 
     const popupMetaFields = ["num", "title", "where", "when", "note"];
+    const popupZoomBtn = document.getElementById("popup-zoom");
+    const popupMetaEl = document.getElementById("popup-meta");
     const peek = document.getElementById("peek");
     const peekImg = document.getElementById("peekImg");
     const navIndex = document.getElementById("nav-index");
@@ -33,6 +35,41 @@ export default function Home() {
     const sortDateBtn = document.getElementById("sort-date");
     const sortAlphaBtn = document.getElementById("sort-alpha");
     const contentEl = document.getElementById("content");
+
+    // Which photos this visitor has opened. Nothing about the archive is
+    // ordered, so the only structure on offer is the trail you leave walking
+    // through it.
+    const SEEN_KEY = "dump-archive:seen";
+    const seen = new Set(readSeen());
+
+    function readSeen() {
+      try {
+        return JSON.parse(localStorage.getItem(SEEN_KEY)) || [];
+      } catch {
+        return [];
+      }
+    }
+
+    function paintSeen() {
+      [indexListEl, titleListEl, logListEl].forEach((listEl) => {
+        listEl.querySelectorAll("li").forEach((li) => {
+          // The index marks its link, matching where is-hover-linked goes.
+          const target = listEl === indexListEl ? li.firstElementChild : li;
+          if (target) target.classList.toggle("is-seen", seen.has(li.dataset.id));
+        });
+      });
+    }
+
+    function markSeen(id) {
+      if (seen.has(id)) return;
+      seen.add(id);
+      try {
+        localStorage.setItem(SEEN_KEY, JSON.stringify([...seen]));
+      } catch {
+        // private browsing, or storage full: the trail just won't outlive the visit
+      }
+      paintSeen();
+    }
     const textEl = document.getElementById("intro-text");
 
     let originalItems = [];
@@ -158,6 +195,10 @@ export default function Home() {
         document.getElementById(`popup-meta-${field}`).textContent = values[field];
       });
 
+      markSeen(item.id);
+      // Nothing to zoom into when the photo already fits at its own size.
+      popupZoomBtn.style.display = canZoom(item) ? "" : "none";
+
       if (!isNavigating) {
         if (layerSwapTimeout) {
           clearTimeout(layerSwapTimeout);
@@ -216,24 +257,103 @@ export default function Home() {
     }
 
     function closePopup() {
+      setZoom(false);
       popupOverlay.classList.remove("is-active");
     }
 
+    // Zoom takes the photo as large as the window allows and loads it at full
+    // resolution, so detail — a receipt, a sign — becomes readable. It never
+    // runs past the edges: the whole photo has to stay in view.
+    let isZoomed = false;
+
+    // Cleared under the meta row rather than centred between two equal gutters,
+    // which would waste as much height at the bottom as the meta needs on top.
+    function zoomGutter() {
+      return Math.max(30, popupMetaEl.getBoundingClientRect().height);
+    }
+
+    function computeZoomedSize(naturalW, naturalH) {
+      const maxH = window.innerHeight - zoomGutter() - 30;
+      const scale = Math.min(window.innerWidth / naturalW, maxH / naturalH, 1);
+      return { width: naturalW * scale, height: naturalH * scale };
+    }
+
+    // Offered only when it buys at least a tenth more size. On a short window
+    // the meta row eats the difference and the press would do nothing visible.
+    function canZoom(item) {
+      if (!item.width || !item.height) return false;
+      const fitted = computeContainedSize(item.width, item.height);
+      return computeZoomedSize(item.width, item.height).width > fitted.width * 1.1;
+    }
+
+    function setZoom(on) {
+      if (on === isZoomed) return;
+      const item = items[currentIndex];
+      if (on && !(item && canZoom(item))) return;
+
+      isZoomed = on;
+      popupOverlay.classList.toggle("is-zoomed", on);
+      popupZoomBtn.textContent = on ? "ZOOM [-]" : "ZOOM [+]";
+
+      if (!on) {
+        popupOverlay.style.paddingTop = "";
+        setStackSize(item, true);
+        return;
+      }
+
+      // Push the centring box below the meta row instead of shrinking the photo
+      // to clear it on both sides.
+      popupOverlay.style.paddingTop = `${zoomGutter()}px`;
+
+      const { width, height } = computeZoomedSize(item.width, item.height);
+      popupImageStack.style.width = `${width}px`;
+      popupImageStack.style.height = `${height}px`;
+      // The prev/next handler writes cursor inline, which would outrank the
+      // zoom-out cursor the stylesheet sets while zoomed.
+      popupImageStack.style.cursor = "";
+
+      // The layer on screen is the back one only while a crossfade still runs.
+      const layer = layerSwapTimeout ? backLayer : frontLayer;
+      const index = currentIndex;
+      const zoomImg = new Image();
+      zoomImg.src = item.zoomSrc;
+      if (zoomImg.complete) {
+        layer.src = item.zoomSrc;
+        return;
+      }
+      zoomImg.onload = () => {
+        if (!isZoomed || currentIndex !== index) return;
+        layer.src = item.zoomSrc;
+      };
+    }
+
+    function onZoomClick() {
+      setZoom(!isZoomed);
+    }
+    popupZoomBtn.addEventListener("click", onZoomClick);
+
     function showPrev() {
+      setZoom(false);
       if (currentIndex > 0) openPopup(currentIndex - 1);
     }
 
     function showNext() {
+      setZoom(false);
       if (currentIndex < items.length - 1) openPopup(currentIndex + 1);
     }
 
     function onStackMouseMove(e) {
+      if (isZoomed) return;
       const rect = popupImageStack.getBoundingClientRect();
       const isLeftHalf = e.clientX - rect.left < rect.width / 2;
       popupImageStack.style.cursor = isLeftHalf ? "w-resize" : "e-resize";
     }
 
     function onStackClick(e) {
+      if (isZoomed) {
+        setZoom(false);
+        return;
+      }
       const rect = popupImageStack.getBoundingClientRect();
       const isLeftHalf = e.clientX - rect.left < rect.width / 2;
       if (isLeftHalf) {
@@ -304,7 +424,11 @@ export default function Home() {
       if (!popupOverlay.classList.contains("is-active")) return;
 
       if (e.key === "Escape") {
-        closePopup();
+        if (isZoomed) {
+          setZoom(false);
+        } else {
+          closePopup();
+        }
       } else if (e.key === "ArrowLeft") {
         showPrev();
       } else if (e.key === "ArrowRight") {
@@ -440,6 +564,7 @@ export default function Home() {
     function refresh() {
       renderLists();
       wireInteractions();
+      paintSeen();
       syncRowHeights();
     }
 
@@ -538,6 +663,7 @@ export default function Home() {
           when: r.when || "",
           note: r.note || "",
           fullSrc: `${r.url}?w=${fullWidth}&${IMG_PARAMS}`,
+          zoomSrc: dimsMatch ? `${r.url}?w=${dimsMatch[1]}&${IMG_PARAMS}` : `${r.url}?${IMG_PARAMS}`,
           thumbSrc: `${r.url}?w=500&${IMG_PARAMS}`,
           width: dimsMatch ? Number(dimsMatch[1]) : null,
           height: dimsMatch ? Number(dimsMatch[2]) : null,
@@ -614,12 +740,14 @@ export default function Home() {
       const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
       let node;
       while ((node = walker.nextNode())) {
+        // Rows already seen are dimmed; a word carries that colour into the fall.
+        const color = getComputedStyle(node.parentElement).color;
         for (const m of node.textContent.matchAll(/\S+/g)) {
           const range = document.createRange();
           range.setStart(node, m.index);
           range.setEnd(node, m.index + m[0].length);
           const rect = range.getBoundingClientRect();
-          if (rect.width && rect.height) words.push({ text: m[0], rect });
+          if (rect.width && rect.height) words.push({ text: m[0], rect, color });
         }
       }
       return words;
@@ -664,7 +792,7 @@ export default function Home() {
 
       const layer = document.createElement("div");
       layer.className = "dump-layer";
-      const bodies = words.map(({ text, rect }) => {
+      const bodies = words.map(({ text, rect, color }) => {
         // Rows scrolled below the fold rain in from above instead of spawning under the floor.
         const y = rect.bottom > floorY ? -rect.height - Math.random() * floorY : rect.top + rect.height / 2;
         const body = Bodies.rectangle(rect.left + rect.width / 2, y, rect.width, rect.height, {
@@ -677,6 +805,7 @@ export default function Home() {
         const el = document.createElement("span");
         el.className = "dump-word";
         el.textContent = text;
+        el.style.color = color;
         el.style.width = `${rect.width}px`;
         el.style.height = `${rect.height}px`;
         el.style.lineHeight = `${rect.height}px`;
@@ -691,6 +820,15 @@ export default function Home() {
       document.body.appendChild(layer);
       document.body.classList.add("is-dumped");
       hidePeek();
+
+      // Dropping the inline colour lets the dimmed words ease back to black on
+      // the way down rather than snapping the moment they appear. The reflow is
+      // what makes it a transition: without it the starting colour is never
+      // computed and the change lands in one frame.
+      void layer.offsetWidth;
+      bodies.forEach(({ el }) => {
+        el.style.color = "";
+      });
 
       const mouse = Mouse.create(layer);
       // Matter grabs wheel events by default, which would block page scrolling.
@@ -758,6 +896,7 @@ export default function Home() {
       navTitles.removeEventListener("click", onNavTitlesClick);
       navTitle.removeEventListener("click", onNavTitleClick);
       navLog.removeEventListener("click", onNavLogClick);
+      popupZoomBtn.removeEventListener("click", onZoomClick);
       popupImageStack.removeEventListener("mousemove", onStackMouseMove);
       popupImageStack.removeEventListener("click", onStackClick);
       document.removeEventListener("mousemove", onDocMouseMove);
@@ -810,6 +949,9 @@ export default function Home() {
           <div className="popup-meta-numtitle">
             <div className="popup-meta-num" id="popup-meta-num"></div>
             <div className="popup-meta-title" id="popup-meta-title"></div>
+            <button type="button" className="popup-zoom" id="popup-zoom">
+              ZOOM [+]
+            </button>
           </div>
           <div className="popup-meta-wherewhen">
             <div className="popup-meta-where" id="popup-meta-where"></div>

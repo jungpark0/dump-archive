@@ -537,6 +537,12 @@ footer div:nth-of-type(2) {
     }
 
     /* footer */
+    /* scrolls with the page instead of sitting on top of it. Static also drops
+       it out of the stacking order, so it no longer shows through the popup. */
+    footer {
+        position: static;
+    }
+
     footer div:nth-of-type(1) {
         display: none;
     }

@@ -605,6 +605,7 @@ export default function Home() {
     // ---------- gravity drop: "(Literally a dump.)" ----------
 
     const dumpTrigger = document.getElementById("dump-trigger");
+    const OPEN_CLASSES = ["is-intro-open", "is-index-open", "is-titles-open", "is-log-open"];
     const headerEl = document.getElementById("header");
     let dumpState = null;
 
@@ -644,9 +645,10 @@ export default function Home() {
       const words = sources.flatMap(collectWords);
 
       // The lists have just been tipped onto the floor, so nothing is open any
-      // more: close them all so the navs read [+] again instead of [-].
-      document.body.classList.remove("is-intro-open");
-      closeIndex();
+      // more: close them all so the navs read [+] again instead of [-]. What
+      // was open is remembered here and put back when the page is restored.
+      state.openClasses = OPEN_CLASSES.filter((c) => document.body.classList.contains(c));
+      document.body.classList.remove(...state.openClasses);
       updateContentMinHeight();
 
       const { Engine, Bodies, Body, Composite, Mouse, MouseConstraint } = Matter;
@@ -710,12 +712,18 @@ export default function Home() {
 
     function endDump() {
       if (!dumpState) return;
-      const { raf, layer, engine, Matter } = dumpState;
+      const { raf, layer, engine, Matter, openClasses } = dumpState;
       dumpState = null;
       if (raf) cancelAnimationFrame(raf);
       if (layer) layer.remove();
       if (engine) Matter.Engine.clear(engine);
       document.body.classList.remove("is-dumped");
+
+      // Put the page back the way it was before everything fell.
+      if (openClasses) {
+        document.body.classList.add(...openClasses);
+        updateContentMinHeight();
+      }
     }
 
     function onDumpKeyDown(e) {
@@ -723,8 +731,16 @@ export default function Home() {
     }
 
     dumpTrigger.addEventListener("click", startDump);
-    // Any header click (nav toggles, sort) puts the page back together first.
-    headerEl.addEventListener("click", endDump, true);
+    // Any header click puts the page back together, and does only that —
+    // letting the nav's own toggle run as well would collapse what the restore
+    // just reopened.
+    function onHeaderClickWhileDumped(e) {
+      if (!dumpState) return;
+      e.stopPropagation();
+      e.preventDefault();
+      endDump();
+    }
+    headerEl.addEventListener("click", onHeaderClickWhileDumped, true);
     window.addEventListener("resize", endDump);
     document.addEventListener("keydown", onDumpKeyDown);
 
@@ -735,7 +751,7 @@ export default function Home() {
       clearTimeout(warmTimer);
       endDump();
       dumpTrigger.removeEventListener("click", startDump);
-      headerEl.removeEventListener("click", endDump, true);
+      headerEl.removeEventListener("click", onHeaderClickWhileDumped, true);
       window.removeEventListener("resize", endDump);
       document.removeEventListener("keydown", onDumpKeyDown);
       navIndex.removeEventListener("click", onNavIndexClick);

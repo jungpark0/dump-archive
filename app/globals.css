@@ -251,6 +251,9 @@ body.is-dumped .content {
     inset: 0;
     z-index: 50;
     overflow: hidden;
+    /* dragging a word shouldn't paint a text selection over the pile */
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 .dump-word {
@@ -258,7 +261,6 @@ body.is-dumped .content {
     top: 0;
     left: 0;
     white-space: pre;
-    user-select: none;
     cursor: grab;
     will-change: transform;
 }

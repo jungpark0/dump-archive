@@ -519,6 +519,11 @@ footer div:nth-of-type(2) {
         width: 100%;
     }
 
+    /* stays under DUMP-ARCHIVE, which is 5 columns wide here */
+    .dump-trigger {
+        grid-column: 1 / span 5;
+    }
+
     .index-list {
         grid-column: 6 / span 2;
     }

@@ -578,7 +578,14 @@ export default function Home() {
       if (dumpState) return;
       const state = {};
       dumpState = state;
-      const Matter = (await import("matter-js")).default;
+      // Clear the guard if the library fails to load, so the trigger isn't dead for good.
+      let Matter;
+      try {
+        Matter = (await import("matter-js")).default;
+      } catch {
+        if (dumpState === state) dumpState = null;
+        return;
+      }
       if (dumpState !== state) return;
 
       const sources = [dumpTrigger, indexListEl];

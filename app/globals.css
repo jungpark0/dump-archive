@@ -233,6 +233,10 @@ body.is-log-open .log-list {
     cursor: pointer;
 }
 
+.dump-trigger::after {
+    content: " [↓]";
+}
+
 .dump-trigger:hover {
     text-decoration: underline;
 }
@@ -257,6 +261,10 @@ body.is-dumped .content {
     user-select: none;
     cursor: grab;
     will-change: transform;
+}
+
+.colophon {
+    margin-top: 15px;
 }
 
 .index-list,
@@ -507,6 +515,11 @@ footer div:nth-of-type(2) {
     }
 
     /* content */
+    .content .text {
+        grid-column: 1 / span 12;
+        width: 100%;
+    }
+
     .index-list {
         grid-column: 6 / span 2;
     }

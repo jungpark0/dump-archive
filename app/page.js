@@ -643,6 +643,12 @@ export default function Home() {
       if (document.body.classList.contains("is-log-open")) sources.push(logListEl);
       const words = sources.flatMap(collectWords);
 
+      // The lists have just been tipped onto the floor, so nothing is open any
+      // more: close them all so the navs read [+] again instead of [-].
+      document.body.classList.remove("is-intro-open");
+      closeIndex();
+      updateContentMinHeight();
+
       const { Engine, Bodies, Body, Composite, Mouse, MouseConstraint } = Matter;
       const engine = Engine.create();
       const width = window.innerWidth;

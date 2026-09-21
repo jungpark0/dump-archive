@@ -5,6 +5,10 @@ import { useEffect } from "react";
 const SANITY_PROJECT_ID = "eg4pfiee";
 const SANITY_DATASET = "production";
 
+// Sanity re-encodes on the fly: auto=format hands back WebP/AVIF wherever the
+// browser takes it, which is roughly half the bytes of the original JPEG.
+const IMG_PARAMS = "auto=format&q=75";
+
 export default function Home() {
   useEffect(() => {
     const popupOverlay = document.getElementById("popup-overlay");
@@ -116,6 +120,34 @@ export default function Home() {
       }
     }
 
+    // Put the full-size photo on a layer. If it is already cached the layer gets
+    // it outright; otherwise the thumbnail stands in — already downloaded, so it
+    // shows up at once — and the full file replaces it the moment it lands.
+    function showFullWhenReady(layer, item, index) {
+      const fullImg = new Image();
+      fullImg.src = item.fullSrc;
+
+      if (fullImg.complete) {
+        layer.src = item.fullSrc;
+        return;
+      }
+
+      layer.src = item.thumbSrc;
+      fullImg.onload = () => {
+        if (currentIndex !== index) return;
+        layer.src = item.fullSrc;
+      };
+    }
+
+    // Paging through the popup shouldn't wait on the network, so fetch the
+    // photos on either side as soon as one is open.
+    function warmNeighbours(index) {
+      [index - 1, index + 1].forEach((i) => {
+        const item = items[i];
+        if (item) new Image().src = item.fullSrc;
+      });
+    }
+
     function openPopup(index) {
       const isNavigating = popupOverlay.classList.contains("is-active");
       currentIndex = index;
@@ -139,21 +171,13 @@ export default function Home() {
         // (slower) full-res load finishes.
         const loadingLayer = frontLayer;
         loadingLayer.alt = item.title;
-        loadingLayer.classList.add("is-loading");
         loadingLayer.style.opacity = "1";
-        loadingLayer.src = item.blurSrc;
         backLayer.style.opacity = "0";
         backLayer.src = "";
-
-        const fullImg = new Image();
-        fullImg.onload = () => {
-          if (currentIndex !== index) return;
-          loadingLayer.src = item.fullSrc;
-          loadingLayer.classList.remove("is-loading");
-        };
-        fullImg.src = item.fullSrc;
+        showFullWhenReady(loadingLayer, item, index);
 
         popupOverlay.classList.add("is-active");
+        warmNeighbours(index);
         return;
       }
 
@@ -164,8 +188,7 @@ export default function Home() {
       // a fixed reference to the element it's actually loading into.
       const loadingLayer = backLayer;
       loadingLayer.alt = item.title;
-      loadingLayer.classList.add("is-loading");
-      loadingLayer.src = item.blurSrc;
+      showFullWhenReady(loadingLayer, item, index);
 
       // Start heading the box toward the new photo's shape right away (in
       // parallel with the fade, not gated behind it) so a fast run of clicks
@@ -181,13 +204,7 @@ export default function Home() {
         frontLayer.style.opacity = "0";
       });
 
-      const fullImg = new Image();
-      fullImg.onload = () => {
-        if (currentIndex !== index) return;
-        loadingLayer.src = item.fullSrc;
-        loadingLayer.classList.remove("is-loading");
-      };
-      fullImg.src = item.fullSrc;
+      warmNeighbours(index);
 
       layerSwapTimeout = setTimeout(() => {
         layerSwapTimeout = null;
@@ -245,10 +262,26 @@ export default function Home() {
       peekImg.src = item.thumbSrc;
       placePeek();
       peek.classList.add("is-on");
+
+      clearTimeout(warmTimer);
+      warmTimer = setTimeout(() => warmFull(id), 200);
     }
 
     function hidePeek() {
+      clearTimeout(warmTimer);
       peek.classList.remove("is-on");
+    }
+
+    // A hover that lasts a moment is usually a click, so start the full-size
+    // download during it. The delay keeps a mouse sweeping down the list from
+    // pulling every photo at once.
+    const warmed = new Set();
+    let warmTimer = null;
+
+    function warmFull(id) {
+      if (warmed.has(id)) return;
+      warmed.add(id);
+      new Image().src = items[indexById.get(id)].fullSrc;
     }
 
     function onDocMouseMove(e) {
@@ -461,11 +494,21 @@ export default function Home() {
     sortDateBtn.addEventListener("click", onSortDateClick);
     sortAlphaBtn.addEventListener("click", onSortAlphaClick);
 
+    // Every thumbnail, so a hover never waits — but at low priority and only
+    // once the browser is idle, so it doesn't compete with the first paint.
     function prefetchThumbs() {
-      items.forEach((it) => {
+      const queue = [...items];
+      const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 200));
+
+      (function next() {
+        if (cancelled) return;
+        const item = queue.shift();
+        if (!item) return;
         const img = new Image();
-        img.src = it.thumbSrc;
-      });
+        img.fetchPriority = "low";
+        img.src = item.thumbSrc;
+        idle(next);
+      })();
     }
 
     let cancelled = false;
@@ -478,6 +521,14 @@ export default function Home() {
       const { result } = await res.json();
       if (cancelled) return;
 
+      // The popup never fills more than 75% of the window, so a flat 1800px is
+      // wasted on most screens. Rounding up to a step keeps everyone sharing a
+      // handful of sizes on the CDN instead of minting a new one per width.
+      const fullWidth = Math.min(
+        1800,
+        Math.ceil((window.innerWidth * 0.75 * (window.devicePixelRatio || 1)) / 300) * 300
+      );
+
       originalItems = result.map((r) => {
         const dimsMatch = r.url.match(/-(\d+)x(\d+)\.\w+$/);
         return {
@@ -486,9 +537,8 @@ export default function Home() {
           where: r.where || "",
           when: r.when || "",
           note: r.note || "",
-          fullSrc: `${r.url}?w=1800`,
-          thumbSrc: `${r.url}?w=700`,
-          blurSrc: `${r.url}?w=40`,
+          fullSrc: `${r.url}?w=${fullWidth}&${IMG_PARAMS}`,
+          thumbSrc: `${r.url}?w=500&${IMG_PARAMS}`,
           width: dimsMatch ? Number(dimsMatch[1]) : null,
           height: dimsMatch ? Number(dimsMatch[2]) : null,
         };
@@ -676,6 +726,7 @@ export default function Home() {
       cancelled = true;
       if (layerSwapTimeout) clearTimeout(layerSwapTimeout);
       if (rollTimeout) clearTimeout(rollTimeout);
+      clearTimeout(warmTimer);
       endDump();
       dumpTrigger.removeEventListener("click", startDump);
       headerEl.removeEventListener("click", endDump, true);
@@ -746,8 +797,8 @@ export default function Home() {
         </div>
         <div className="popup-content">
           <div className="popup-image-stack" id="popup-image-stack">
-            <img className="popup-image-layer" id="popup-image-a" alt="" />
-            <img className="popup-image-layer" id="popup-image-b" alt="" />
+            <img className="popup-image-layer" id="popup-image-a" alt="" decoding="async" fetchPriority="high" />
+            <img className="popup-image-layer" id="popup-image-b" alt="" decoding="async" fetchPriority="high" />
           </div>
         </div>
       </div>

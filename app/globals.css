@@ -426,12 +426,9 @@ footer div:nth-of-type(2) {
     display: block;
     object-fit: contain;
     pointer-events: none;
-    transition: opacity 0.3s ease, filter 0.3s ease;
+    transition: opacity 0.3s ease;
 }
 
-.popup-image-layer.is-loading {
-    filter: blur(16px);
-}
 
 .popup-image-stack.is-transitioning .popup-image-layer {
     object-fit: cover;

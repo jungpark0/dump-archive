@@ -200,7 +200,16 @@ export default function Home() {
       currentIndex = index;
       const item = items[index];
 
-      const values = { num: item.id, title: item.title, where: item.where, when: item.when, note: item.note || NO_NOTE };
+      // A missing date or place is genuine missing data, and the log list
+      // already prints those as "-". The popup says the same instead of
+      // leaving a blank cell.
+      const values = {
+        num: item.id,
+        title: item.title,
+        where: item.where || "-",
+        when: item.when || "-",
+        note: item.note || NO_NOTE,
+      };
       popupMetaFields.forEach((field) => {
         document.getElementById(`popup-meta-${field}`).textContent = values[field];
       });

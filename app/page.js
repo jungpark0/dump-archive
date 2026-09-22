@@ -189,12 +189,18 @@ export default function Home() {
       });
     }
 
+    // Not every photo has something behind it. An empty note slot reads as a
+    // field nobody filled in, so the popup says it in the notes' own voice
+    // instead — the same line every time, because a rule reads as a decision and
+    // a variation reads as filler. The note itself stays empty in the CMS.
+    const NO_NOTE = "Just the photo.";
+
     function openPopup(index) {
       const isNavigating = popupOverlay.classList.contains("is-active");
       currentIndex = index;
       const item = items[index];
 
-      const values = { num: item.id, title: item.title, where: item.where, when: item.when, note: item.note };
+      const values = { num: item.id, title: item.title, where: item.where, when: item.when, note: item.note || NO_NOTE };
       popupMetaFields.forEach((field) => {
         document.getElementById(`popup-meta-${field}`).textContent = values[field];
       });

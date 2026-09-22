@@ -39,12 +39,15 @@ export default function Home() {
     // Which photos this visitor has opened. Nothing about the archive is
     // ordered, so the only structure on offer is the trail you leave walking
     // through it.
+    // The trail is capped: one that never expires reaches every row, and a mark
+    // on every row says nothing — it only dims the list.
     const SEEN_KEY = "dump-archive:seen";
-    const seen = new Set(readSeen());
+    const TRAIL_LENGTH = 1;
+    let trail = readTrail();
 
-    function readSeen() {
+    function readTrail() {
       try {
-        return JSON.parse(localStorage.getItem(SEEN_KEY)) || [];
+        return (JSON.parse(localStorage.getItem(SEEN_KEY)) || []).slice(-TRAIL_LENGTH);
       } catch {
         return [];
       }
@@ -55,16 +58,17 @@ export default function Home() {
         listEl.querySelectorAll("li").forEach((li) => {
           // The index marks its link, matching where is-hover-linked goes.
           const target = listEl === indexListEl ? li.firstElementChild : li;
-          if (target) target.classList.toggle("is-seen", seen.has(li.dataset.id));
+          if (target) target.classList.toggle("is-seen", trail.includes(li.dataset.id));
         });
       });
     }
 
     function markSeen(id) {
-      if (seen.has(id)) return;
-      seen.add(id);
+      if (trail[trail.length - 1] === id) return;
+      // Reopening an old row moves it back to the head rather than doubling it up.
+      trail = [...trail.filter((seenId) => seenId !== id), id].slice(-TRAIL_LENGTH);
       try {
-        localStorage.setItem(SEEN_KEY, JSON.stringify([...seen]));
+        localStorage.setItem(SEEN_KEY, JSON.stringify(trail));
       } catch {
         // private browsing, or storage full: the trail just won't outlive the visit
       }
@@ -740,7 +744,7 @@ export default function Home() {
       const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
       let node;
       while ((node = walker.nextNode())) {
-        // Rows already seen are dimmed; a word carries that colour into the fall.
+        // Rows on the trail are dimmed; a word carries that colour into the fall.
         const color = getComputedStyle(node.parentElement).color;
         for (const m of node.textContent.matchAll(/\S+/g)) {
           const range = document.createRange();

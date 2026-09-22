@@ -320,8 +320,9 @@ body.is-dumped .content {
     text-decoration: underline;
 }
 
-/* a row you have already opened. The one trace a dump allows: it comes from
-   the visitor's own path, not from the archive sorting itself */
+/* the rows still on your trail. The one trace a dump allows: it comes from the
+   visitor's own path, not from the archive sorting itself. script.js keeps the
+   trail short, since a mark on every row stops being a mark */
 .index-list a.is-seen,
 .title-list li.is-seen,
 .log-list li.is-seen {
@@ -423,6 +424,14 @@ footer div:nth-of-type(2) {
 .popup-overlay.is-active {
     opacity: 1;
     pointer-events: auto;
+}
+
+/* the overlay is translucent, so a drag across the photo was painting a text
+   selection over the list showing through the blur. Nothing in here is meant to
+   be selected while the popup is up */
+body:has(.popup-overlay.is-active) {
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 .popup-content {

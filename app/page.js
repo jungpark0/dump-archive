@@ -945,7 +945,7 @@ export default function Home() {
 
       <div className="content" id="content">
         <div className="text" id="intro-text">
-          <p>This archive is where all kinds of images just get dumped in. (Literally a dump.) Some of them I have something to say about, and some of them I just liked the look of.</p>
+          <p>This archive is where all kinds of images just get dumped in. (Literally a dump.)<br />Some of them I have something to say about, and some of them I just liked the look of.</p>
           <p className="colophon">Built with NEXT.JS · Content ON SANITY</p>
         </div>
 

@@ -612,20 +612,21 @@ body:has(.popup-overlay.is-active) {
     }
 
     .popup-meta-numtitle {
-        grid-column: 1 / span 4;
+        grid-column: 1 / span 5;
     }
 
     .popup-meta-wherewhen {
-        grid-column: 5 / span 8;
-        grid-template-columns: auto;
+        grid-column: 6 / span 7;
     }
 
     .popup-meta-where {
-        grid-column: 1 / span 8;
+        grid-column: 1 / span 7;
     }
 
     .popup-meta-when {
-        grid-column: 4 / span 4;
+        grid-column: 1 / span 7;
+        display: flex;
+        justify-content: flex-end;
     }
 
     .popup-meta-note {

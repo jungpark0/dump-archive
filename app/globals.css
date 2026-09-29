@@ -311,11 +311,10 @@ body.is-dumped .content {
     cursor: pointer;
 }
 
-.index-list a:hover,
+/* no :hover here: script.js sets the class only for a real pointer, and a
+   plain :hover would stick to the last row tapped on a phone */
 .index-list a.is-hover-linked,
-.title-list li:hover,
 .title-list li.is-hover-linked,
-.log-list li:hover,
 .log-list li.is-hover-linked {
     text-decoration: underline;
 }

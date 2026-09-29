@@ -382,8 +382,37 @@ export default function Home() {
       }
     }
 
+    // On a phone there is no cursor to show that the halves turn the page, so a
+    // sideways swipe does it too. While zoomed in, a drag belongs to the zoom.
+    let touchStartX = 0;
+    let touchStartY = 0;
+
+    function onStackTouchStart(e) {
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    }
+
+    function onStackTouchEnd(e) {
+      if (isZoomed) return;
+      const dx = e.changedTouches[0].clientX - touchStartX;
+      const dy = e.changedTouches[0].clientY - touchStartY;
+      if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return;
+      if (dx < 0) {
+        showNext();
+      } else {
+        showPrev();
+      }
+    }
+
     popupImageStack.addEventListener("mousemove", onStackMouseMove);
     popupImageStack.addEventListener("click", onStackClick);
+    popupImageStack.addEventListener("touchstart", onStackTouchStart, { passive: true });
+    popupImageStack.addEventListener("touchend", onStackTouchEnd);
+
+    // A phone fakes a hover on every tap and only ends it at the next tap somewhere
+    // else, so the list would stay dimmed after the popup closes. Row hovers are for
+    // a real pointer only, the same test globals.css uses for the peek.
+    const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)");
 
     let mx = 0;
     let my = 0;
@@ -529,6 +558,7 @@ export default function Home() {
 
       indexLinkById.forEach((link, id) => {
         link.addEventListener("mouseenter", () => {
+          if (!finePointer.matches) return;
           showPeek(id);
           setHoverLinked(id, true);
         });
@@ -545,6 +575,7 @@ export default function Home() {
 
       [...titleItemById, ...logItemById].forEach(([id, li]) => {
         li.addEventListener("mouseenter", () => {
+          if (!finePointer.matches) return;
           showPeek(id);
           setHoverLinked(id, true);
         });
@@ -918,6 +949,8 @@ export default function Home() {
       popupZoomBtn.removeEventListener("click", onZoomClick);
       popupImageStack.removeEventListener("mousemove", onStackMouseMove);
       popupImageStack.removeEventListener("click", onStackClick);
+      popupImageStack.removeEventListener("touchstart", onStackTouchStart);
+      popupImageStack.removeEventListener("touchend", onStackTouchEnd);
       document.removeEventListener("mousemove", onDocMouseMove);
       peekImg.removeEventListener("load", placePeek);
       popupOverlay.removeEventListener("click", onOverlayClick);

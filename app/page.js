@@ -378,23 +378,34 @@ export default function Home() {
 
     let mx = 0;
     let my = 0;
-    // Set while a thumbnail is pinned in the dumped pile: it stays at the point that
-    // was clicked instead of following the cursor.
+    // Set while a thumbnail is pinned in the dumped pile: it sits over the word
+    // that was clicked instead of following the cursor.
     let pinned = null;
 
     function placePeek() {
       const w = 230;
       const h = peekImg.naturalHeight ? (w * peekImg.naturalHeight) / peekImg.naturalWidth : 280;
-      const at = pinned || { x: mx, y: my };
-      const x = Math.min(at.x + 20, window.innerWidth - w - 12);
-      const y = Math.min(at.y + 16, window.innerHeight - h - 12);
+      let x;
+      let y;
+      if (pinned) {
+        // Centred above the word, clear of the pile; below it only when the
+        // word is too near the top for the thumbnail to fit.
+        const { rect } = pinned;
+        x = rect.left + rect.width / 2 - w / 2;
+        y = rect.top - h - 8;
+        if (y < 12) y = rect.bottom + 8;
+      } else {
+        x = mx + 20;
+        y = Math.min(my + 16, window.innerHeight - h - 12);
+      }
+      x = Math.min(x, window.innerWidth - w - 12);
       peek.style.transform = `translate(${Math.max(12, x)}px, ${Math.max(12, y)}px)`;
     }
 
     // In the pile a click shows the thumbnail rather than the whole photo, so the
     // mess stays in view. Clicking the thumbnail itself goes on to the photo.
-    function pinPeek(id, x, y) {
-      pinned = { id, x, y };
+    function pinPeek(id, rect) {
+      pinned = { id, rect };
       peekImg.src = items[indexById.get(id)].thumbSrc;
       placePeek();
       peek.classList.add("is-pinned");
@@ -890,7 +901,7 @@ export default function Home() {
         press = null;
         if (!id || id === was) return;
         if (e.timeStamp - t > 400 || Math.hypot(e.clientX - x, e.clientY - y) > 6) return;
-        pinPeek(id, e.clientX, e.clientY);
+        pinPeek(id, e.target.getBoundingClientRect());
       });
 
       const mouse = Mouse.create(layer);

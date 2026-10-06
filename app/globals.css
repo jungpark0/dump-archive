@@ -386,6 +386,8 @@ footer div:nth-of-type(1) {
 /* pinned: called up by clicking a word in the dumped pile, on any device. It
    sits over that word, and clicking it goes on to the full photo */
 .peek.is-pinned {
+    /* smaller than the hover peek: it sits in the open above the pile */
+    width: 160px;
     opacity: 1;
     pointer-events: auto;
     cursor: pointer;

@@ -383,7 +383,8 @@ export default function Home() {
     let pinned = null;
 
     function placePeek() {
-      const w = 230;
+      // Matches .peek and .peek.is-pinned in the stylesheet.
+      const w = pinned ? 160 : 230;
       const h = peekImg.naturalHeight ? (w * peekImg.naturalHeight) / peekImg.naturalWidth : 280;
       let x;
       let y;

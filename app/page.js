@@ -378,51 +378,12 @@ export default function Home() {
 
     let mx = 0;
     let my = 0;
-    // Set while a thumbnail is pinned in the dumped pile: it sits over the word
-    // that was clicked instead of following the cursor.
-    let pinned = null;
-
     function placePeek() {
-      // Matches .peek and .peek.is-pinned in the stylesheet.
-      const w = pinned ? 160 : 230;
+      const w = 230;
       const h = peekImg.naturalHeight ? (w * peekImg.naturalHeight) / peekImg.naturalWidth : 280;
-      let x;
-      let y;
-      if (pinned) {
-        // Centred above the word, clear of the pile; below it only when the
-        // word is too near the top for the thumbnail to fit.
-        const { rect } = pinned;
-        x = rect.left + rect.width / 2 - w / 2;
-        y = rect.top - h - 8;
-        if (y < 12) y = rect.bottom + 8;
-      } else {
-        x = mx + 20;
-        y = Math.min(my + 16, window.innerHeight - h - 12);
-      }
-      x = Math.min(x, window.innerWidth - w - 12);
+      const x = Math.min(mx + 20, window.innerWidth - w - 12);
+      const y = Math.min(my + 16, window.innerHeight - h - 12);
       peek.style.transform = `translate(${Math.max(12, x)}px, ${Math.max(12, y)}px)`;
-    }
-
-    // In the pile a click shows the thumbnail rather than the whole photo, so the
-    // mess stays in view. Clicking the thumbnail itself goes on to the photo.
-    function pinPeek(id, rect) {
-      pinned = { id, rect };
-      peekImg.src = items[indexById.get(id)].thumbSrc;
-      placePeek();
-      peek.classList.add("is-pinned");
-      warmFull(id);
-    }
-
-    function unpinPeek() {
-      pinned = null;
-      peek.classList.remove("is-pinned");
-    }
-
-    function onPeekClick() {
-      if (!pinned) return;
-      const { id } = pinned;
-      unpinPeek();
-      openPopup(indexById.get(id));
     }
 
     function showPeek(id) {
@@ -460,7 +421,6 @@ export default function Home() {
 
     document.addEventListener("mousemove", onDocMouseMove);
     peekImg.addEventListener("load", placePeek);
-    peek.addEventListener("click", onPeekClick);
 
     function onOverlayClick(e) {
       if (e.target === popupOverlay) {
@@ -473,8 +433,6 @@ export default function Home() {
       if (!popupOverlay.classList.contains("is-active")) return;
 
       if (e.key === "Escape") {
-        // Marks the key as spent, so it doesn't also put a dumped page away.
-        e.preventDefault();
         if (isZoomed) {
           setZoom(false);
         } else {
@@ -720,6 +678,8 @@ export default function Home() {
           fullSrc: `${r.url}?w=${fullWidth}&${IMG_PARAMS}`,
           zoomSrc: dimsMatch ? `${r.url}?w=${dimsMatch[1]}&${IMG_PARAMS}` : `${r.url}?${IMG_PARAMS}`,
           thumbSrc: `${r.url}?w=500&${IMG_PARAMS}`,
+          // For the dumped pile, where a photo is drawn about 50px wide.
+          dumpSrc: `${r.url}?w=96&auto=format&q=50`,
           width: dimsMatch ? Number(dimsMatch[1]) : null,
           height: dimsMatch ? Number(dimsMatch[2]) : null,
         };
@@ -809,6 +769,92 @@ export default function Home() {
       return words;
     }
 
+    const PIECE = { restitution: 0.1, friction: 0.6, frictionAir: 0.01 };
+    const SWAP_LABEL = { words: "(Photos too.)", photos: "(Words again.)" };
+
+    // One falling span per word. `rain` drops them in from above the window
+    // instead of from where they stood in the list.
+    function spawnWords(state, indexes, rain) {
+      const { Bodies, Body, Composite } = state.Matter;
+      const made = indexes.map((wi) => {
+        const { text, rect, color, id } = state.words[wi];
+        // Rows scrolled below the fold rain in too, rather than spawning under the floor.
+        const y = rain || rect.bottom > state.floorY
+          ? -rect.height - Math.random() * state.floorY
+          : rect.top + rect.height / 2;
+        const body = Bodies.rectangle(rect.left + rect.width / 2, y, rect.width, rect.height, PIECE);
+        Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.02);
+
+        const el = document.createElement("span");
+        el.className = "dump-word";
+        el.textContent = text;
+        el.style.color = color;
+        el.style.width = `${rect.width}px`;
+        el.style.height = `${rect.height}px`;
+        el.style.lineHeight = `${rect.height}px`;
+        state.layer.appendChild(el);
+        return { body, el, w: rect.width, h: rect.height, id, wi };
+      });
+      Composite.add(state.engine.world, made.map((piece) => piece.body));
+      state.pieces.push(...made);
+      return made;
+    }
+
+    function clearPieces(state, test) {
+      state.pieces.filter(test).forEach(({ body, el }) => {
+        state.Matter.Composite.remove(state.engine.world, body);
+        el.remove();
+      });
+      state.pieces = state.pieces.filter((piece) => !test(piece));
+    }
+
+    // Swap what is lying on the floor: the words of every row for that row's
+    // photo, or back. The trigger's own words belong to no photo and stay put.
+    function swapPile(state) {
+      const { Bodies, Body, Composite } = state.Matter;
+      if (state.mode === "photos") {
+        clearPieces(state, (piece) => piece.photo);
+        const made = spawnWords(state, state.words.flatMap((word, wi) => (word.id ? [wi] : [])), true);
+        made.forEach(({ el }) => {
+          el.style.color = "";
+        });
+        state.mode = "words";
+      } else {
+        // A photo comes down over one of its own words, so the photos land
+        // spread along the pile the way the text was.
+        const dropX = new Map();
+        state.pieces.forEach(({ id, body }) => {
+          if (!id) return;
+          if (!dropX.has(id)) dropX.set(id, []);
+          dropX.get(id).push(body.position.x);
+        });
+        clearPieces(state, (piece) => piece.id);
+
+        const w = window.innerWidth < 768 ? 32 : 48;
+        const made = items.filter((item) => dropX.has(item.id)).map((item) => {
+          const h = Math.round(w * (item.width && item.height ? item.height / item.width : 4 / 3));
+          const xs = dropX.get(item.id);
+          const x = Math.min(Math.max(xs[Math.floor(Math.random() * xs.length)], w), window.innerWidth - w);
+          const body = Bodies.rectangle(x, -h - Math.random() * state.floorY, w, h, PIECE);
+          Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.02);
+
+          const el = document.createElement("img");
+          el.className = "dump-word dump-photo";
+          el.src = item.dumpSrc;
+          el.alt = "";
+          el.draggable = false;
+          el.style.width = `${w}px`;
+          el.style.height = `${h}px`;
+          state.layer.appendChild(el);
+          return { body, el, w, h, id: item.id, photo: true };
+        });
+        Composite.add(state.engine.world, made.map((piece) => piece.body));
+        state.pieces.push(...made);
+        state.mode = "photos";
+      }
+      state.swap.textContent = SWAP_LABEL[state.mode];
+    }
+
     async function startDump() {
       if (dumpState) return;
       const state = {};
@@ -827,15 +873,16 @@ export default function Home() {
       if (document.body.classList.contains("is-titles-open")) sources.push(titleListEl);
       if (document.body.classList.contains("is-log-open")) sources.push(logListEl);
       const words = sources.flatMap(collectWords);
+      const triggerRect = dumpTrigger.getBoundingClientRect();
 
       // The lists have just been tipped onto the floor, so nothing is open any
-      // more: close them all so the navs read [+] again instead of [-]. What
-      // was open is remembered here and put back when the page is restored.
+      // more: close them all so the navs read [+] again instead of [-]. What was
+      // open is remembered here and put back when the page is restored.
       state.openClasses = OPEN_CLASSES.filter((c) => document.body.classList.contains(c));
       document.body.classList.remove(...state.openClasses);
       updateContentMinHeight();
 
-      const { Engine, Bodies, Body, Composite, Mouse, MouseConstraint } = Matter;
+      const { Engine, Bodies, Composite, Mouse, MouseConstraint } = Matter;
       const engine = Engine.create();
       const width = window.innerWidth;
       const floorY = window.innerHeight - document.querySelector("footer").offsetHeight;
@@ -848,33 +895,22 @@ export default function Home() {
 
       const layer = document.createElement("div");
       layer.className = "dump-layer";
-      const bodies = words.map(({ text, rect, color, id }) => {
-        // Rows scrolled below the fold rain in from above instead of spawning under the floor.
-        const y = rect.bottom > floorY ? -rect.height - Math.random() * floorY : rect.top + rect.height / 2;
-        const body = Bodies.rectangle(rect.left + rect.width / 2, y, rect.width, rect.height, {
-          restitution: 0.1,
-          friction: 0.6,
-          frictionAir: 0.01,
-        });
-        Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.02);
+      Object.assign(state, { Matter, engine, layer, sources, words, floorY, pieces: [], mode: "words" });
+      const fallen = spawnWords(state, words.map((_, wi) => wi), false);
 
-        const el = document.createElement("span");
-        el.className = "dump-word";
-        if (id) el.dataset.id = id;
-        el.textContent = text;
-        el.style.color = color;
-        el.style.width = `${rect.width}px`;
-        el.style.height = `${rect.height}px`;
-        el.style.lineHeight = `${rect.height}px`;
-        layer.appendChild(el);
-        return { body, el, w: rect.width, h: rect.height };
-      });
-      Composite.add(
-        engine.world,
-        bodies.map((b) => b.body)
-      );
+      // Stands where the trigger stood, now that the trigger is on the floor.
+      // It sits outside the layer: Matter cancels touches there, and with them
+      // the click a phone would send.
+      const swap = document.createElement("button");
+      swap.type = "button";
+      swap.className = "dump-swap";
+      swap.textContent = SWAP_LABEL.words;
+      swap.style.left = `${triggerRect.left}px`;
+      swap.style.top = `${triggerRect.top}px`;
+      swap.addEventListener("click", () => swapPile(state));
+      state.swap = swap;
 
-      document.body.appendChild(layer);
+      document.body.append(layer, swap);
       document.body.classList.add("is-dumped");
       hidePeek();
 
@@ -883,26 +919,15 @@ export default function Home() {
       // what makes it a transition: without it the starting colour is never
       // computed and the change lands in one frame.
       void layer.offsetWidth;
-      bodies.forEach(({ el }) => {
+      fallen.forEach(({ el }) => {
         el.style.color = "";
       });
+      swap.classList.add("is-on");
 
-      // The pile is still the archive: a press that lets go where it landed is a
-      // click and pins that word's thumbnail. A press that travels is a drag, and
-      // stays with the physics. Either one clears the thumbnail already showing,
-      // so clicking the same word twice puts it away.
-      let press = null;
-      layer.addEventListener("pointerdown", (e) => {
-        press = { x: e.clientX, y: e.clientY, t: e.timeStamp, id: e.target.dataset.id, was: pinned && pinned.id };
-        unpinPeek();
-      });
-      layer.addEventListener("pointerup", (e) => {
-        if (!press) return;
-        const { x, y, t, id, was } = press;
-        press = null;
-        if (!id || id === was) return;
-        if (e.timeStamp - t > 400 || Math.hypot(e.clientX - x, e.clientY - y) > 6) return;
-        pinPeek(id, e.target.getBoundingClientRect());
+      // Fetched now, while the words are still falling, so the photos are
+      // already there if they are asked for.
+      items.forEach((item) => {
+        new Image().src = item.dumpSrc;
       });
 
       const mouse = Mouse.create(layer);
@@ -914,27 +939,26 @@ export default function Home() {
       const step = (now) => {
         Engine.update(engine, Math.min(now - last, 32));
         last = now;
-        bodies.forEach(({ body, el, w, h }) => {
+        state.pieces.forEach(({ body, el, w, h }) => {
           el.style.transform = `translate(${body.position.x - w / 2}px, ${body.position.y - h / 2}px) rotate(${body.angle}rad)`;
         });
         state.raf = requestAnimationFrame(step);
       };
-      Object.assign(state, { engine, layer, Matter, bodies, sources });
       state.raf = requestAnimationFrame(step);
     }
 
     const RETURN_MS = 1000;
     const RETURN_STAGGER_MS = 200;
 
-    // Leaving the dump: the words don't vanish, they fly back to the spot in
-    // the list they fell from and the real page is swapped in underneath them.
+    // Leaving the dump: nothing vanishes. Words fly back to the spot in the list
+    // they fell from; a photo flies to its row and shrinks away into it. The real
+    // page is swapped in underneath.
     // `animate: false` is for when those spots are about to move (a resize) or
     // the page is going away.
     function endDump({ animate = true } = {}) {
       if (!dumpState) return;
       const state = dumpState;
-      unpinPeek();
-      // A second request while the words are in flight lands them at once.
+      // A second request while the pile is in flight lands it at once.
       if (state.returning) {
         finishDump(state);
         return;
@@ -950,27 +974,30 @@ export default function Home() {
       }
 
       const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      // Measured now rather than remembered from the fall: closing the lists
-      // may have changed the scroll position since.
-      const homes = state.bodies && !still && animate ? state.sources.flatMap(collectWords) : [];
-      if (!homes.length || homes.length !== state.bodies.length) {
+      // Measured now rather than remembered from the fall: closing the lists may
+      // have changed the scroll position since.
+      const homes = state.pieces && !still && animate ? state.sources.flatMap(collectWords) : [];
+      if (!homes.length || homes.length !== state.words.length) {
         finishDump(state);
         return;
       }
 
       state.returning = true;
-      // Words can't be grabbed mid-flight.
+      // Nothing can be grabbed mid-flight, and the pile can't be swapped.
       state.layer.style.pointerEvents = "none";
-      const flights = state.bodies.map(({ body, el, w, h }, i) => {
-        // Unwind the short way round, however many times the word tumbled.
-        const angle = Math.atan2(Math.sin(body.angle), Math.cos(body.angle));
+      state.swap.remove();
+      const flights = state.pieces.map(({ body, el, w, h, id, wi, photo }) => {
+        // A photo heads for the first word of its row, the number.
+        const { rect } = photo ? homes.find((home) => home.id === id) : homes[wi];
         return {
           el,
+          photo,
           x0: body.position.x - w / 2,
           y0: body.position.y - h / 2,
-          a0: angle,
-          x1: homes[i].rect.left,
-          y1: homes[i].rect.top,
+          // Unwind the short way round, however many times the piece tumbled.
+          a0: Math.atan2(Math.sin(body.angle), Math.cos(body.angle)),
+          x1: photo ? rect.left + rect.width / 2 - w / 2 : rect.left,
+          y1: photo ? rect.top + rect.height / 2 - h / 2 : rect.top,
           delay: Math.random() * RETURN_STAGGER_MS,
         };
       });
@@ -978,12 +1005,14 @@ export default function Home() {
       const start = performance.now();
       const fly = (now) => {
         const elapsed = now - start;
-        flights.forEach(({ el, x0, y0, a0, x1, y1, delay }) => {
+        flights.forEach(({ el, photo, x0, y0, a0, x1, y1, delay }) => {
           const t = Math.min(Math.max((elapsed - delay) / RETURN_MS, 0), 1);
           // ease-in: a slow lift off the pile that keeps gathering speed, so the
           // word snaps onto its line instead of drifting in
           const k = t * t * t;
-          el.style.transform = `translate(${x0 + (x1 - x0) * k}px, ${y0 + (y1 - y0) * k}px) rotate(${a0 * (1 - k)}rad)`;
+          const shrink = photo ? ` scale(${1 - 0.8 * k})` : "";
+          el.style.transform = `translate(${x0 + (x1 - x0) * k}px, ${y0 + (y1 - y0) * k}px) rotate(${a0 * (1 - k)}rad)${shrink}`;
+          if (photo) el.style.opacity = 1 - k;
         });
         if (elapsed < RETURN_MS + RETURN_STAGGER_MS) {
           state.raf = requestAnimationFrame(fly);
@@ -999,6 +1028,7 @@ export default function Home() {
       dumpState = null;
       if (state.raf) cancelAnimationFrame(state.raf);
       if (state.layer) state.layer.remove();
+      if (state.swap) state.swap.remove();
       if (state.engine) state.Matter.Engine.clear(state.engine);
       document.body.classList.remove("is-dumped");
     }
@@ -1008,7 +1038,7 @@ export default function Home() {
     }
 
     function onDumpKeyDown(e) {
-      if (e.key === "Escape" && !e.defaultPrevented) endDump();
+      if (e.key === "Escape") endDump();
     }
 
     dumpTrigger.addEventListener("click", startDump);
@@ -1046,7 +1076,6 @@ export default function Home() {
       popupImageStack.removeEventListener("touchend", onStackTouchEnd);
       document.removeEventListener("mousemove", onDocMouseMove);
       peekImg.removeEventListener("load", placePeek);
-      peek.removeEventListener("click", onPeekClick);
       popupOverlay.removeEventListener("click", onOverlayClick);
       document.removeEventListener("keydown", onKeyDown);
       sortDateBtn.removeEventListener("click", onSortDateClick);

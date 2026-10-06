@@ -267,6 +267,43 @@ body.is-dumped .content {
     transition: color 0.6s ease;
 }
 
+/* a photo in the pile: the same falling piece, drawn from a tiny image */
+.dump-photo {
+    display: block;
+    object-fit: cover;
+    background-color: #eee;
+    -webkit-user-drag: none;
+}
+
+/* (Photos too.): stands where the trigger stood while the page is dumped, and
+   swaps the fallen words for their photos and back. It waits for the trigger's
+   own words to fall clear before fading in */
+.dump-swap {
+    position: fixed;
+    z-index: 60;
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.3s ease 0.5s;
+}
+
+.dump-swap.is-on {
+    opacity: 1;
+}
+
+.dump-swap::after {
+    content: " [↓]";
+}
+
+.dump-swap:hover {
+    text-decoration: underline;
+}
+
 .colophon {
     margin-top: 15px;
 }
@@ -381,16 +418,6 @@ footer div:nth-of-type(1) {
     .peek.is-on {
         opacity: 1;
     }
-}
-
-/* pinned: called up by clicking a word in the dumped pile, on any device. It
-   sits over that word, and clicking it goes on to the full photo */
-.peek.is-pinned {
-    /* smaller than the hover peek: it sits in the open above the pile */
-    width: 160px;
-    opacity: 1;
-    pointer-events: auto;
-    cursor: pointer;
 }
 
 /* ---------- popup ---------- */

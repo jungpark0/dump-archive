@@ -353,10 +353,6 @@ footer div:nth-of-type(1) {
     grid-column: 1 / span 3;
 }
 
-footer div:nth-of-type(2) {
-    grid-column: 4 / span 5;
-}
-
 /* LAST DUMP: lines up with 055 ITEMS in the header */
 .last-dump {
     grid-column: 9 / span 4;
@@ -575,11 +571,8 @@ body:has(.popup-overlay.is-active) {
     }
 
     /* footer */
-    footer div:nth-of-type(1) {
-        display: none;
-    }
 
-    footer div:nth-of-type(2) {
+    footer div:nth-of-type(1) {
         grid-column: 1 / span 12;
     }
 

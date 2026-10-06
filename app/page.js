@@ -980,7 +980,6 @@ export default function Home() {
       </div>
 
       <footer>
-        <div></div>
         <div className="footer">
           <span>© 2026 JUNGPARK. ALL RIGHTS RESERVED</span>
         </div>

@@ -66,8 +66,8 @@ login. There is no token in this repo and none is needed.
 ## Conventions the code relies on
 
 - **An empty `note` is deliberate**, not unfinished. The popup prints
-  `Just the photo.` in its place. Roughly 22 of 55 photos are in that state.
-- **A missing `where` or `when` prints `-`**, matching the 055 log list.
+  `Just the photo.` in its place. Roughly 22 of 58 photos are in that state.
+- **A missing `where` or `when` prints `-`**, matching the log list.
 - **Series titles hyphenate their counter**: `Receipt-1`, `Asian Squat-9`.
   `Manhole, 359` is not a series — that number is part of the name.
 - **Titles stay at or under ~21 characters** so the TITLE column never wraps.

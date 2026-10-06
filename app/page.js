@@ -854,24 +854,90 @@ export default function Home() {
         });
         state.raf = requestAnimationFrame(step);
       };
-      Object.assign(state, { engine, layer, Matter });
+      Object.assign(state, { engine, layer, Matter, bodies, sources });
       state.raf = requestAnimationFrame(step);
     }
 
-    function endDump() {
-      if (!dumpState) return;
-      const { raf, layer, engine, Matter, openClasses } = dumpState;
-      dumpState = null;
-      if (raf) cancelAnimationFrame(raf);
-      if (layer) layer.remove();
-      if (engine) Matter.Engine.clear(engine);
-      document.body.classList.remove("is-dumped");
+    const RETURN_MS = 700;
+    const RETURN_STAGGER_MS = 250;
 
-      // Put the page back the way it was before everything fell.
-      if (openClasses) {
-        document.body.classList.add(...openClasses);
+    // Leaving the dump: the words don't vanish, they fly back to the spot in
+    // the list they fell from and the real page is swapped in underneath them.
+    // `animate: false` is for when those spots are about to move (a resize) or
+    // the page is going away.
+    function endDump({ animate = true } = {}) {
+      if (!dumpState) return;
+      const state = dumpState;
+      // A second request while the words are in flight lands them at once.
+      if (state.returning) {
+        finishDump(state);
+        return;
+      }
+      if (state.raf) cancelAnimationFrame(state.raf);
+      state.raf = null;
+
+      // Put the page back the way it was before everything fell. It stays
+      // hidden under is-dumped, but it has its layout again, so it can be measured.
+      if (state.openClasses) {
+        document.body.classList.add(...state.openClasses);
         updateContentMinHeight();
       }
+
+      const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      // Measured now rather than remembered from the fall: closing the lists
+      // may have changed the scroll position since.
+      const homes = state.bodies && !still && animate ? state.sources.flatMap(collectWords) : [];
+      if (!homes.length || homes.length !== state.bodies.length) {
+        finishDump(state);
+        return;
+      }
+
+      state.returning = true;
+      // Words can't be grabbed mid-flight.
+      state.layer.style.pointerEvents = "none";
+      const flights = state.bodies.map(({ body, el, w, h }, i) => {
+        // Unwind the short way round, however many times the word tumbled.
+        const angle = Math.atan2(Math.sin(body.angle), Math.cos(body.angle));
+        return {
+          el,
+          x0: body.position.x - w / 2,
+          y0: body.position.y - h / 2,
+          a0: angle,
+          x1: homes[i].rect.left,
+          y1: homes[i].rect.top,
+          delay: Math.random() * RETURN_STAGGER_MS,
+        };
+      });
+
+      const start = performance.now();
+      const fly = (now) => {
+        const elapsed = now - start;
+        flights.forEach(({ el, x0, y0, a0, x1, y1, delay }) => {
+          const t = Math.min(Math.max((elapsed - delay) / RETURN_MS, 0), 1);
+          // ease-in-out: a slow lift off the pile, a soft landing on the line
+          const k = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+          el.style.transform = `translate(${x0 + (x1 - x0) * k}px, ${y0 + (y1 - y0) * k}px) rotate(${a0 * (1 - k)}rad)`;
+        });
+        if (elapsed < RETURN_MS + RETURN_STAGGER_MS) {
+          state.raf = requestAnimationFrame(fly);
+        } else {
+          finishDump(state);
+        }
+      };
+      state.raf = requestAnimationFrame(fly);
+    }
+
+    function finishDump(state) {
+      if (dumpState !== state) return;
+      dumpState = null;
+      if (state.raf) cancelAnimationFrame(state.raf);
+      if (state.layer) state.layer.remove();
+      if (state.engine) state.Matter.Engine.clear(state.engine);
+      document.body.classList.remove("is-dumped");
+    }
+
+    function onDumpResize() {
+      endDump({ animate: false });
     }
 
     function onDumpKeyDown(e) {
@@ -889,7 +955,7 @@ export default function Home() {
       endDump();
     }
     headerEl.addEventListener("click", onHeaderClickWhileDumped, true);
-    window.addEventListener("resize", endDump);
+    window.addEventListener("resize", onDumpResize);
     document.addEventListener("keydown", onDumpKeyDown);
 
     return () => {
@@ -897,10 +963,10 @@ export default function Home() {
       if (layerSwapTimeout) clearTimeout(layerSwapTimeout);
       if (rollTimeout) clearTimeout(rollTimeout);
       clearTimeout(warmTimer);
-      endDump();
+      endDump({ animate: false });
       dumpTrigger.removeEventListener("click", startDump);
       headerEl.removeEventListener("click", onHeaderClickWhileDumped, true);
-      window.removeEventListener("resize", endDump);
+      window.removeEventListener("resize", onDumpResize);
       document.removeEventListener("keydown", onDumpKeyDown);
       navIndex.removeEventListener("click", onNavIndexClick);
       navTitles.removeEventListener("click", onNavTitlesClick);

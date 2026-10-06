@@ -383,6 +383,14 @@ footer div:nth-of-type(1) {
     }
 }
 
+/* pinned: called up by clicking a word in the dumped pile, on any device. It
+   stays where it was clicked, and clicking it goes on to the full photo */
+.peek.is-pinned {
+    opacity: 1;
+    pointer-events: auto;
+    cursor: pointer;
+}
+
 /* ---------- popup ---------- */
 
 .popup-overlay {

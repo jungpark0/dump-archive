@@ -378,13 +378,39 @@ export default function Home() {
 
     let mx = 0;
     let my = 0;
+    // Set while a thumbnail is pinned in the dumped pile: it stays at the point that
+    // was clicked instead of following the cursor.
+    let pinned = null;
 
     function placePeek() {
       const w = 230;
       const h = peekImg.naturalHeight ? (w * peekImg.naturalHeight) / peekImg.naturalWidth : 280;
-      const x = Math.min(mx + 20, window.innerWidth - w - 12);
-      const y = Math.min(my + 16, window.innerHeight - h - 12);
+      const at = pinned || { x: mx, y: my };
+      const x = Math.min(at.x + 20, window.innerWidth - w - 12);
+      const y = Math.min(at.y + 16, window.innerHeight - h - 12);
       peek.style.transform = `translate(${Math.max(12, x)}px, ${Math.max(12, y)}px)`;
+    }
+
+    // In the pile a click shows the thumbnail rather than the whole photo, so the
+    // mess stays in view. Clicking the thumbnail itself goes on to the photo.
+    function pinPeek(id, x, y) {
+      pinned = { id, x, y };
+      peekImg.src = items[indexById.get(id)].thumbSrc;
+      placePeek();
+      peek.classList.add("is-pinned");
+      warmFull(id);
+    }
+
+    function unpinPeek() {
+      pinned = null;
+      peek.classList.remove("is-pinned");
+    }
+
+    function onPeekClick() {
+      if (!pinned) return;
+      const { id } = pinned;
+      unpinPeek();
+      openPopup(indexById.get(id));
     }
 
     function showPeek(id) {
@@ -422,6 +448,7 @@ export default function Home() {
 
     document.addEventListener("mousemove", onDocMouseMove);
     peekImg.addEventListener("load", placePeek);
+    peek.addEventListener("click", onPeekClick);
 
     function onOverlayClick(e) {
       if (e.target === popupOverlay) {
@@ -849,18 +876,21 @@ export default function Home() {
       });
 
       // The pile is still the archive: a press that lets go where it landed is a
-      // click and opens that word's photo. A press that travels is a drag, and
-      // stays with the physics.
+      // click and pins that word's thumbnail. A press that travels is a drag, and
+      // stays with the physics. Either one clears the thumbnail already showing,
+      // so clicking the same word twice puts it away.
       let press = null;
       layer.addEventListener("pointerdown", (e) => {
-        press = { x: e.clientX, y: e.clientY, t: e.timeStamp, id: e.target.dataset.id };
+        press = { x: e.clientX, y: e.clientY, t: e.timeStamp, id: e.target.dataset.id, was: pinned && pinned.id };
+        unpinPeek();
       });
       layer.addEventListener("pointerup", (e) => {
         if (!press) return;
-        const { x, y, t, id } = press;
+        const { x, y, t, id, was } = press;
         press = null;
-        if (!id || e.timeStamp - t > 400 || Math.hypot(e.clientX - x, e.clientY - y) > 6) return;
-        openPopup(indexById.get(id));
+        if (!id || id === was) return;
+        if (e.timeStamp - t > 400 || Math.hypot(e.clientX - x, e.clientY - y) > 6) return;
+        pinPeek(id, e.clientX, e.clientY);
       });
 
       const mouse = Mouse.create(layer);
@@ -891,6 +921,7 @@ export default function Home() {
     function endDump({ animate = true } = {}) {
       if (!dumpState) return;
       const state = dumpState;
+      unpinPeek();
       // A second request while the words are in flight lands them at once.
       if (state.returning) {
         finishDump(state);
@@ -1003,6 +1034,7 @@ export default function Home() {
       popupImageStack.removeEventListener("touchend", onStackTouchEnd);
       document.removeEventListener("mousemove", onDocMouseMove);
       peekImg.removeEventListener("load", placePeek);
+      peek.removeEventListener("click", onPeekClick);
       popupOverlay.removeEventListener("click", onOverlayClick);
       document.removeEventListener("keydown", onKeyDown);
       sortDateBtn.removeEventListener("click", onSortDateClick);

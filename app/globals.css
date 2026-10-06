@@ -267,6 +267,12 @@ body.is-dumped .content {
     transition: color 0.6s ease;
 }
 
+/* swapped out of the pile: fades where it lies rather than blinking off */
+.dump-word.is-leaving {
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
 /* a photo in the pile: the same falling piece, drawn from a tiny image */
 .dump-photo {
     display: block;

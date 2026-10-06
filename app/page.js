@@ -800,10 +800,13 @@ export default function Home() {
       return made;
     }
 
+    // Their bodies go at once, so what comes down next has a clear floor; the
+    // elements stay where they lay for the moment it takes them to fade.
     function clearPieces(state, test) {
       state.pieces.filter(test).forEach(({ body, el }) => {
         state.Matter.Composite.remove(state.engine.world, body);
-        el.remove();
+        el.classList.add("is-leaving");
+        setTimeout(() => el.remove(), 200);
       });
       state.pieces = state.pieces.filter((piece) => !test(piece));
     }
@@ -986,6 +989,13 @@ export default function Home() {
       // Nothing can be grabbed mid-flight, and the pile can't be swapped.
       state.layer.style.pointerEvents = "none";
       state.swap.remove();
+      // Words land on their own line and the swap is invisible. Photos have no
+      // line to land on, so the list fades in beneath them as they shrink away.
+      const fadeIn = state.mode === "photos";
+      if (fadeIn) {
+        contentEl.style.opacity = 0;
+        contentEl.style.visibility = "visible";
+      }
       const flights = state.pieces.map(({ body, el, w, h, id, wi, photo }) => {
         // A photo heads for the first word of its row, the number.
         const { rect } = photo ? homes.find((home) => home.id === id) : homes[wi];
@@ -1014,6 +1024,7 @@ export default function Home() {
           el.style.transform = `translate(${x0 + (x1 - x0) * k}px, ${y0 + (y1 - y0) * k}px) rotate(${a0 * (1 - k)}rad)${shrink}`;
           if (photo) el.style.opacity = 1 - k;
         });
+        if (fadeIn) contentEl.style.opacity = Math.min(elapsed / (RETURN_MS + RETURN_STAGGER_MS), 1) ** 2;
         if (elapsed < RETURN_MS + RETURN_STAGGER_MS) {
           state.raf = requestAnimationFrame(fly);
         } else {
@@ -1031,6 +1042,8 @@ export default function Home() {
       if (state.swap) state.swap.remove();
       if (state.engine) state.Matter.Engine.clear(state.engine);
       document.body.classList.remove("is-dumped");
+      contentEl.style.opacity = "";
+      contentEl.style.visibility = "";
     }
 
     function onDumpResize() {

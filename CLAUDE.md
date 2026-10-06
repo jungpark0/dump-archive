@@ -71,13 +71,13 @@ login. There is no token in this repo and none is needed.
 - **Series titles hyphenate their counter**: `Receipt-1`, `Asian Squat-9`.
   `Manhole, 359` is not a series — that number is part of the name.
 - **Titles stay at or under ~21 characters** so the TITLE column never wraps.
-- The visit trail marks only the most recent photo. Anything that marks every
-  row eventually marks nothing.
+- Opened rows are not marked. A visit trail was tried and removed: it only
+  dimmed the list.
 
 ## The one rule about new features
 
 The intro says the archive takes everything in and groups nothing. It already
-carries sorting, a trail, zoom and a gravity drop — about as much structure as
+carries sorting, zoom and a gravity drop — about as much structure as
 that claim survives. Grouping, tags, filters or series navigation would make
 the first line a lie. Weigh a new feature against that sentence before building
 it.

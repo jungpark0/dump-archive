@@ -319,22 +319,6 @@ body.is-dumped .content {
     text-decoration: underline;
 }
 
-/* the rows still on your trail. The one trace a dump allows: it comes from the
-   visitor's own path, not from the archive sorting itself. script.js keeps the
-   trail short, since a mark on every row stops being a mark */
-.index-list a.is-seen,
-.title-list li.is-seen,
-.log-list li.is-seen {
-    color: #999;
-}
-
-/* the row under the cursor comes back to black, seen or not */
-.index-list a.is-seen.is-hover-linked,
-.title-list li.is-seen.is-hover-linked,
-.log-list li.is-seen.is-hover-linked {
-    color: rgb(0, 0, 0);
-}
-
 body.is-hovering .index-list a:not(.is-hover-linked),
 body.is-hovering .title-list li:not(.is-hover-linked),
 body.is-hovering .log-list li:not(.is-hover-linked) {

@@ -68,6 +68,9 @@ login. There is no token in this repo and none is needed.
 - **An empty `note` is deliberate**, not unfinished. The popup prints
   `Just the photo.` in its place. Roughly 22 of 58 photos are in that state.
 - **A missing `where` or `when` prints `-`**, matching the log list.
+- **A new photo takes the next free number**, whatever its date. Numbers record
+  the order photos were added; 001–055 happen to run by date because they were
+  imported together. Never renumber to slot a photo in by date.
 - **Series titles hyphenate their counter**: `Receipt-1`, `Asian Squat-9`.
   `Manhole, 359` is not a series — that number is part of the name.
 - **Titles stay at or under ~21 characters** so the TITLE column never wraps.

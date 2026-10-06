@@ -916,7 +916,7 @@ export default function Home() {
           const t = Math.min(Math.max((elapsed - delay) / RETURN_MS, 0), 1);
           // ease-in: a slow lift off the pile that keeps gathering speed, so the
           // word snaps onto its line instead of drifting in
-          const k = t * t * t;
+          const k = t * t * t * t;
           el.style.transform = `translate(${x0 + (x1 - x0) * k}px, ${y0 + (y1 - y0) * k}px) rotate(${a0 * (1 - k)}rad)`;
         });
         if (elapsed < RETURN_MS + RETURN_STAGGER_MS) {

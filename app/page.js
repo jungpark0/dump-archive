@@ -42,7 +42,8 @@ export default function Home() {
     let items = [];
     let indexById = new Map();
     let currentIndex = -1;
-    let sortField = "date";
+    // No sort to begin with: the lists run in the order the photos were added.
+    let sortField = null;
     let sortDir = "asc";
 
     function updateContentMinHeight() {
@@ -602,18 +603,21 @@ export default function Home() {
     }
 
     function applySort() {
-      items = [...originalItems].sort(compareItems);
+      items = sortField ? [...originalItems].sort(compareItems) : [...originalItems];
       indexById = new Map(items.map((it, i) => [it.id, i]));
       refresh();
       updateSortButtonsUI();
     }
 
+    // Each button walks ↑, then ↓, then off again, back to the unsorted list.
     function setSort(field) {
-      if (sortField === field) {
-        sortDir = sortDir === "asc" ? "desc" : "asc";
-      } else {
+      if (sortField !== field) {
         sortField = field;
+        sortDir = "asc";
+      } else if (sortDir === "asc") {
         sortDir = "desc";
+      } else {
+        sortField = null;
       }
       applySort();
     }

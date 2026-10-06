@@ -54,6 +54,19 @@ Project `eg4pfiee`, dataset `production`, read straight from the CDN by the
 browser — no API route, no rebuild needed when content changes. A new photo
 goes in through the Studio and appears on the next page load.
 
+### Adding a photo
+
+The site reads only from Sanity, but `../img/` keeps a local copy of every photo
+under its number, so a new one goes to both:
+
+- `../img/full/NNN.jpg` — long side 1800px, quality 90. This is the file that
+  is uploaded to Sanity.
+- `../img/thumb/NNN.jpg` — long side 700px.
+
+Make both from the original with its EXIF orientation applied and the EXIF
+itself dropped (the originals carry GPS); keep the ICC profile. Read `when` from
+the original's capture date before dropping it. The original is not kept.
+
 Bulk edits are one-off scripts in `../archive-site/scripts/`, run with:
 
 ```bash

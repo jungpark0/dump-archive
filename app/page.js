@@ -858,7 +858,7 @@ export default function Home() {
       state.raf = requestAnimationFrame(step);
     }
 
-    const RETURN_MS = 800;
+    const RETURN_MS = 1000;
     const RETURN_STAGGER_MS = 200;
 
     // Leaving the dump: the words don't vanish, they fly back to the spot in

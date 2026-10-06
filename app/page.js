@@ -434,6 +434,8 @@ export default function Home() {
       if (!popupOverlay.classList.contains("is-active")) return;
 
       if (e.key === "Escape") {
+        // Marks the key as spent, so it doesn't also put a dumped page away.
+        e.preventDefault();
         if (isZoomed) {
           setZoom(false);
         } else {
@@ -754,14 +756,15 @@ export default function Home() {
       const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
       let node;
       while ((node = walker.nextNode())) {
-        // A word carries its row's colour into the fall.
+        // A word carries its row's colour into the fall, and the row's photo with it.
+        const id = node.parentElement.closest("[data-id]")?.dataset.id;
         const color = getComputedStyle(node.parentElement).color;
         for (const m of node.textContent.matchAll(/\S+/g)) {
           const range = document.createRange();
           range.setStart(node, m.index);
           range.setEnd(node, m.index + m[0].length);
           const rect = range.getBoundingClientRect();
-          if (rect.width && rect.height) words.push({ text: m[0], rect, color });
+          if (rect.width && rect.height) words.push({ text: m[0], rect, color, id });
         }
       }
       return words;
@@ -806,7 +809,7 @@ export default function Home() {
 
       const layer = document.createElement("div");
       layer.className = "dump-layer";
-      const bodies = words.map(({ text, rect, color }) => {
+      const bodies = words.map(({ text, rect, color, id }) => {
         // Rows scrolled below the fold rain in from above instead of spawning under the floor.
         const y = rect.bottom > floorY ? -rect.height - Math.random() * floorY : rect.top + rect.height / 2;
         const body = Bodies.rectangle(rect.left + rect.width / 2, y, rect.width, rect.height, {
@@ -818,6 +821,7 @@ export default function Home() {
 
         const el = document.createElement("span");
         el.className = "dump-word";
+        if (id) el.dataset.id = id;
         el.textContent = text;
         el.style.color = color;
         el.style.width = `${rect.width}px`;
@@ -842,6 +846,21 @@ export default function Home() {
       void layer.offsetWidth;
       bodies.forEach(({ el }) => {
         el.style.color = "";
+      });
+
+      // The pile is still the archive: a press that lets go where it landed is a
+      // click and opens that word's photo. A press that travels is a drag, and
+      // stays with the physics.
+      let press = null;
+      layer.addEventListener("pointerdown", (e) => {
+        press = { x: e.clientX, y: e.clientY, t: e.timeStamp, id: e.target.dataset.id };
+      });
+      layer.addEventListener("pointerup", (e) => {
+        if (!press) return;
+        const { x, y, t, id } = press;
+        press = null;
+        if (!id || e.timeStamp - t > 400 || Math.hypot(e.clientX - x, e.clientY - y) > 6) return;
+        openPopup(indexById.get(id));
       });
 
       const mouse = Mouse.create(layer);
@@ -946,7 +965,7 @@ export default function Home() {
     }
 
     function onDumpKeyDown(e) {
-      if (e.key === "Escape") endDump();
+      if (e.key === "Escape" && !e.defaultPrevented) endDump();
     }
 
     dumpTrigger.addEventListener("click", startDump);

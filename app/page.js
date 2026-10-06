@@ -771,6 +771,11 @@ export default function Home() {
 
     const PIECE = { restitution: 0.1, friction: 0.6, frictionAir: 0.01 };
     const SWAP_LABEL = { words: "(Photos too.)", photos: "(Words again.)" };
+    // A photo pops out of its row's words: it starts as a speck, is flicked upward
+    // and swells to full size, one photo after another over POP_SPREAD_MS.
+    const POP_MS = 280;
+    const POP_SPREAD_MS = 500;
+    const POP_FROM = 0.1;
 
     // One falling span per word. `rain` drops them in from above the window
     // instead of from where they stood in the list.
@@ -811,10 +816,54 @@ export default function Home() {
       state.pieces = state.pieces.filter((piece) => !test(piece));
     }
 
+    // The words of one row give way to that row's photo, which appears where one
+    // of them was lying.
+    function popPhoto(state, item) {
+      const { Bodies, Body, Composite } = state.Matter;
+      const own = state.pieces.filter((piece) => piece.id === item.id && !piece.photo);
+      if (!own.length) return;
+      const from = own[Math.floor(Math.random() * own.length)].body;
+      clearPieces(state, (piece) => own.includes(piece));
+
+      const w = window.innerWidth < 768 ? 32 : 48;
+      const h = Math.round(w * (item.width && item.height ? item.height / item.width : 4 / 3));
+      const body = Bodies.rectangle(from.position.x, Math.min(from.position.y, state.floorY - 4), w, h, PIECE);
+      // The body grows with the picture, so it shoulders its neighbours aside
+      // instead of landing on them at full size.
+      Body.scale(body, POP_FROM, POP_FROM);
+      Body.setAngle(body, from.angle);
+      Body.setVelocity(body, { x: (Math.random() - 0.5) * 4, y: -(5 + Math.random() * 4) });
+      Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.2);
+
+      const el = document.createElement("img");
+      el.className = "dump-word dump-photo";
+      el.src = item.dumpSrc;
+      el.alt = "";
+      el.draggable = false;
+      el.style.width = `${w}px`;
+      el.style.height = `${h}px`;
+      // Drawn by the next frame; until then it would sit at the layer's corner.
+      el.style.transform = "scale(0)";
+      state.layer.appendChild(el);
+      Composite.add(state.engine.world, body);
+      state.pieces.push({ body, el, w, h, id: item.id, photo: true, pop: { start: performance.now(), size: POP_FROM } });
+    }
+
+    // One frame of a pop. The body swells steadily; the picture overshoots and
+    // settles, which is what makes it read as a pop.
+    function growPhoto(state, piece, now) {
+      const t = Math.min((now - piece.pop.start) / POP_MS, 1);
+      const size = POP_FROM + (1 - POP_FROM) * t;
+      state.Matter.Body.scale(piece.body, size / piece.pop.size, size / piece.pop.size);
+      piece.pop.size = size;
+      const back = 1 + 3.6 * (t - 1) ** 3 + 2.6 * (t - 1) ** 2;
+      if (t === 1) delete piece.pop;
+      return ` scale(${POP_FROM + (1 - POP_FROM) * back})`;
+    }
+
     // Swap what is lying on the floor: the words of every row for that row's
     // photo, or back. The trigger's own words belong to no photo and stay put.
     function swapPile(state) {
-      const { Bodies, Body, Composite } = state.Matter;
       if (state.mode === "photos") {
         clearPieces(state, (piece) => piece.photo);
         const made = spawnWords(state, state.words.flatMap((word, wi) => (word.id ? [wi] : [])), true);
@@ -823,36 +872,12 @@ export default function Home() {
         });
         state.mode = "words";
       } else {
-        // A photo comes down over one of its own words, so the photos land
-        // spread along the pile the way the text was.
-        const dropX = new Map();
-        state.pieces.forEach(({ id, body }) => {
-          if (!id) return;
-          if (!dropX.has(id)) dropX.set(id, []);
-          dropX.get(id).push(body.position.x);
-        });
-        clearPieces(state, (piece) => piece.id);
-
-        const w = window.innerWidth < 768 ? 32 : 48;
-        const made = items.filter((item) => dropX.has(item.id)).map((item) => {
-          const h = Math.round(w * (item.width && item.height ? item.height / item.width : 4 / 3));
-          const xs = dropX.get(item.id);
-          const x = Math.min(Math.max(xs[Math.floor(Math.random() * xs.length)], w), window.innerWidth - w);
-          const body = Bodies.rectangle(x, -h - Math.random() * state.floorY, w, h, PIECE);
-          Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.02);
-
-          const el = document.createElement("img");
-          el.className = "dump-word dump-photo";
-          el.src = item.dumpSrc;
-          el.alt = "";
-          el.draggable = false;
-          el.style.width = `${w}px`;
-          el.style.height = `${h}px`;
-          state.layer.appendChild(el);
-          return { body, el, w, h, id: item.id, photo: true };
-        });
-        Composite.add(state.engine.world, made.map((piece) => piece.body));
-        state.pieces.push(...made);
+        const ids = new Set(state.pieces.map((piece) => piece.id));
+        // Popcorn rather than one bang: every row goes off at its own moment.
+        state.timers = items.filter((item) => ids.has(item.id)).map((item) => setTimeout(() => {
+          if (dumpState === state && !state.returning) popPhoto(state, item);
+        }, Math.random() * POP_SPREAD_MS));
+        state.busyUntil = performance.now() + POP_SPREAD_MS + POP_MS;
         state.mode = "photos";
       }
       state.swap.textContent = SWAP_LABEL[state.mode];
@@ -910,7 +935,11 @@ export default function Home() {
       swap.textContent = SWAP_LABEL.words;
       swap.style.left = `${triggerRect.left}px`;
       swap.style.top = `${triggerRect.top}px`;
-      swap.addEventListener("click", () => swapPile(state));
+      swap.addEventListener("click", () => {
+        // Not while the photos are still going off.
+        if (performance.now() < (state.busyUntil || 0)) return;
+        swapPile(state);
+      });
       state.swap = swap;
 
       document.body.append(layer, swap);
@@ -942,8 +971,10 @@ export default function Home() {
       const step = (now) => {
         Engine.update(engine, Math.min(now - last, 32));
         last = now;
-        state.pieces.forEach(({ body, el, w, h }) => {
-          el.style.transform = `translate(${body.position.x - w / 2}px, ${body.position.y - h / 2}px) rotate(${body.angle}rad)`;
+        state.pieces.forEach((piece) => {
+          const { body, el, w, h } = piece;
+          const scale = piece.pop ? growPhoto(state, piece, now) : "";
+          el.style.transform = `translate(${body.position.x - w / 2}px, ${body.position.y - h / 2}px) rotate(${body.angle}rad)${scale}`;
         });
         state.raf = requestAnimationFrame(step);
       };
@@ -1038,6 +1069,7 @@ export default function Home() {
       if (dumpState !== state) return;
       dumpState = null;
       if (state.raf) cancelAnimationFrame(state.raf);
+      if (state.timers) state.timers.forEach(clearTimeout);
       if (state.layer) state.layer.remove();
       if (state.swap) state.swap.remove();
       if (state.engine) state.Matter.Engine.clear(state.engine);

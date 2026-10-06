@@ -858,8 +858,8 @@ export default function Home() {
       state.raf = requestAnimationFrame(step);
     }
 
-    const RETURN_MS = 900;
-    const RETURN_STAGGER_MS = 250;
+    const RETURN_MS = 1600;
+    const RETURN_STAGGER_MS = 500;
 
     // Leaving the dump: the words don't vanish, they fly back to the spot in
     // the list they fell from and the real page is swapped in underneath them.

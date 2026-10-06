@@ -315,7 +315,9 @@ body.is-dumped .content {
    plain :hover would stick to the last row tapped on a phone */
 .index-list a.is-hover-linked,
 .title-list li.is-hover-linked,
-.log-list li.is-hover-linked {
+.log-list li.is-hover-linked,
+/* an underline does not reach into an inline-block, so the date asks for its own */
+.log-list li.is-hover-linked .log-date {
     text-decoration: underline;
 }
 

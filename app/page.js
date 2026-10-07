@@ -832,7 +832,7 @@ export default function Home() {
       // instead of landing on them at full size.
       Body.scale(body, POP_FROM, POP_FROM);
       Body.setAngle(body, from.angle);
-      Body.setVelocity(body, { x: (Math.random() - 0.5) * 4, y: -(5 + Math.random() * 4) });
+      Body.setVelocity(body, { x: (Math.random() - 0.5) * 4, y: -(7 + Math.random() * 4) });
       Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.2);
 
       const el = document.createElement("img");

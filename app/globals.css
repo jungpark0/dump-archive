@@ -303,7 +303,7 @@ body.is-dumped .content {
 }
 
 .dump-swap::after {
-    content: " [↓]";
+    content: " [⁕]";
 }
 
 .dump-swap:hover {

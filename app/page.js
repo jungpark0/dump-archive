@@ -822,7 +822,7 @@ export default function Home() {
       const { Body } = state.Matter;
       Body.scale(body, POP_FROM, POP_FROM);
       Body.setAngle(body, angle);
-      Body.setVelocity(body, { x: (Math.random() - 0.5) * 4, y: -(7 + Math.random() * 4) });
+      Body.setVelocity(body, { x: (Math.random() - 0.5) * 4, y: -(5 + Math.random() * 4) });
       Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.2);
       return { start: performance.now(), size: POP_FROM };
     }

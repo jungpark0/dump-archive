@@ -1016,11 +1016,10 @@ export default function Home() {
     const RETURN_STAGGER_MS = 200;
 
     // Leaving the dump: nothing just vanishes. Words fly back to the spot in the
-    // list they fell from. A photo has no spot of its own, so it breaks into the
-    // words of its row where it lies, and those fly home. Either way every word
-    // lands on its own line and the real page is swapped in underneath.
-    // `animate: false` is for when those spots are about to move (a resize) or
-    // the page is going away.
+    // list they fell from, and the real page is swapped in underneath. A photo
+    // flies to its row and shrinks into it, and the row's text shows the moment
+    // the photo arrives — one row at a time, each lit by its own photo.
+    // `animate: false` is for when those spots are about to move (a resize).
     function endDump({ animate = true } = {}) {
       if (!dumpState) return;
       const state = dumpState;
@@ -1052,64 +1051,57 @@ export default function Home() {
       // Nothing can be grabbed mid-flight, and the pile can't be swapped.
       state.layer.style.pointerEvents = "none";
       state.swap.remove();
-      // Unwind the short way round, however many times the piece tumbled.
-      const settle = (angle) => Math.atan2(Math.sin(angle), Math.cos(angle));
-      const flights = state.pieces.flatMap(({ body, el, w, h, id, wi, photo }) => {
-        const delay = Math.random() * RETURN_STAGGER_MS;
-        const a0 = settle(body.angle);
-        if (!photo) {
-          const { rect } = homes[wi];
-          return [{ el, x0: body.position.x - w / 2, y0: body.position.y - h / 2, a0, x1: rect.left, y1: rect.top, delay }];
-        }
-        // The photo stays put and shrinks away while its words burst out of
-        // it: flung a little way first, each on its own arc, then home.
-        const burst = state.words.flatMap((word, i) => {
-          if (word.id !== id) return [];
-          const wordElement = wordEl(word);
-          wordElement.style.transform = "scale(0)";
-          state.layer.appendChild(wordElement);
-          return [{
-            el: wordElement,
-            x0: body.position.x - word.rect.width / 2,
-            y0: body.position.y - word.rect.height / 2,
-            a0,
-            x1: homes[i].rect.left,
-            y1: homes[i].rect.top,
-            delay,
-            arc: { x: (Math.random() - 0.5) * 90, y: -(20 + Math.random() * 60) },
-          }];
+      // With photos on the floor the list has to be seen arriving, so it is
+      // shown early with every row blanked; a row comes back when its photo lands.
+      // The trigger's words are still flying as words, so its own text waits.
+      const rows = new Map();
+      if (state.pieces.some((piece) => piece.photo)) {
+        [indexListEl, titleListEl, logListEl].forEach((listEl) => {
+          listEl.querySelectorAll("li").forEach((li) => {
+            li.style.opacity = 0;
+            if (!rows.has(li.dataset.id)) rows.set(li.dataset.id, []);
+            rows.get(li.dataset.id).push(li);
+          });
         });
-        return [{ el, vanish: true, x0: body.position.x - w / 2, y0: body.position.y - h / 2, a0, delay }, ...burst];
+        dumpTrigger.style.visibility = "hidden";
+        contentEl.style.visibility = "visible";
+        state.blanked = [...rows.values()].flat();
+      }
+
+      const flights = state.pieces.map(({ body, el, w, h, id, wi, photo }) => {
+        // A photo heads for the first word of its row, the number.
+        const { rect } = photo ? homes.find((home) => home.id === id) : homes[wi];
+        return {
+          el,
+          lights: photo && rows.get(id),
+          x0: body.position.x - w / 2,
+          y0: body.position.y - h / 2,
+          // Unwind the short way round, however many times the piece tumbled.
+          a0: Math.atan2(Math.sin(body.angle), Math.cos(body.angle)),
+          x1: photo ? rect.left + rect.width / 2 - w / 2 : rect.left,
+          y1: photo ? rect.top + rect.height / 2 - h / 2 : rect.top,
+          delay: Math.random() * RETURN_STAGGER_MS,
+        };
       });
 
       const start = performance.now();
       const fly = (now) => {
         const elapsed = now - start;
-        flights.forEach(({ el, vanish, arc, x0, y0, a0, x1, y1, delay }) => {
+        flights.forEach((flight) => {
+          const { el, lights, x0, y0, a0, x1, y1, delay } = flight;
           const t = Math.min(Math.max((elapsed - delay) / RETURN_MS, 0), 1);
-          if (vanish) {
-            const gone = Math.min(t * 3, 1);
-            el.style.transform = `translate(${x0}px, ${y0}px) rotate(${a0}rad) scale(${1 - gone})`;
-            el.style.opacity = 1 - gone;
-            return;
-          }
           // ease-in: a slow lift off the pile that keeps gathering speed, so the
-          // word snaps onto its line instead of drifting in
+          // piece snaps onto its line instead of drifting in
           const k = t * t * t;
-          let x = x0 + (x1 - x0) * k;
-          let y = y0 + (y1 - y0) * k;
-          let scale = "";
-          if (arc) {
-            // Out and back: the fling is widest halfway and gone on landing.
-            const out = 4 * t * (1 - t);
-            x += arc.x * out;
-            y += arc.y * out;
-            // The same pop the pile uses, over the first quarter of the flight.
-            const grown = Math.min(t / 0.25, 1);
-            const back = 1 + 3.6 * (grown - 1) ** 3 + 2.6 * (grown - 1) ** 2;
-            scale = ` scale(${t ? POP_FROM + (1 - POP_FROM) * back : 0})`;
+          const shrink = lights ? ` scale(${1 - 0.75 * k})` : "";
+          el.style.transform = `translate(${x0 + (x1 - x0) * k}px, ${y0 + (y1 - y0) * k}px) rotate(${a0 * (1 - k)}rad)${shrink}`;
+          if (lights && t === 1 && !flight.landed) {
+            flight.landed = true;
+            el.style.opacity = 0;
+            lights.forEach((li) => {
+              li.style.opacity = "";
+            });
           }
-          el.style.transform = `translate(${x}px, ${y}px) rotate(${a0 * (1 - k)}rad)${scale}`;
         });
         if (elapsed < RETURN_MS + RETURN_STAGGER_MS) {
           state.raf = requestAnimationFrame(fly);
@@ -1129,6 +1121,13 @@ export default function Home() {
       if (state.swap) state.swap.remove();
       if (state.engine) state.Matter.Engine.clear(state.engine);
       document.body.classList.remove("is-dumped");
+      if (state.blanked) {
+        state.blanked.forEach((li) => {
+          li.style.opacity = "";
+        });
+        dumpTrigger.style.visibility = "";
+        contentEl.style.visibility = "";
+      }
     }
 
     function onDumpResize() {

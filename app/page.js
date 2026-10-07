@@ -778,18 +778,23 @@ export default function Home() {
     const POP_SPREAD_MS = 500;
     const POP_FROM = 0.1;
 
+    function wordEl({ text, rect }) {
+      const el = document.createElement("span");
+      el.className = "dump-word";
+      el.textContent = text;
+      el.style.width = `${rect.width}px`;
+      el.style.height = `${rect.height}px`;
+      el.style.lineHeight = `${rect.height}px`;
+      return el;
+    }
+
     // One falling span per word. They start where they stood in the list, or,
     // given `from`, pop out of that point the way a photo does.
     function spawnWords(state, indexes, from) {
       const { Bodies, Body, Composite } = state.Matter;
       const made = indexes.map((wi) => {
-        const { text, rect, color, id } = state.words[wi];
-        const el = document.createElement("span");
-        el.className = "dump-word";
-        el.textContent = text;
-        el.style.width = `${rect.width}px`;
-        el.style.height = `${rect.height}px`;
-        el.style.lineHeight = `${rect.height}px`;
+        const { rect, color, id } = state.words[wi];
+        const el = wordEl(state.words[wi]);
 
         let body;
         let pop;
@@ -1010,9 +1015,10 @@ export default function Home() {
     const RETURN_MS = 1000;
     const RETURN_STAGGER_MS = 200;
 
-    // Leaving the dump: nothing vanishes. Words fly back to the spot in the list
-    // they fell from; a photo flies to its row and shrinks away into it. The real
-    // page is swapped in underneath.
+    // Leaving the dump: nothing just vanishes. Words fly back to the spot in the
+    // list they fell from. A photo has no spot of its own, so it breaks into the
+    // words of its row where it lies, and those fly home. Either way every word
+    // lands on its own line and the real page is swapped in underneath.
     // `animate: false` is for when those spots are about to move (a resize) or
     // the page is going away.
     function endDump({ animate = true } = {}) {
@@ -1046,42 +1052,65 @@ export default function Home() {
       // Nothing can be grabbed mid-flight, and the pile can't be swapped.
       state.layer.style.pointerEvents = "none";
       state.swap.remove();
-      // Words land on their own line and the swap is invisible. Photos have no
-      // line to land on, so the list fades in beneath them as they shrink away.
-      const fadeIn = state.pieces.some((piece) => piece.photo);
-      if (fadeIn) {
-        contentEl.style.opacity = 0;
-        contentEl.style.visibility = "visible";
-      }
-      const flights = state.pieces.map(({ body, el, w, h, id, wi, photo }) => {
-        // A photo heads for the first word of its row, the number.
-        const { rect } = photo ? homes.find((home) => home.id === id) : homes[wi];
-        return {
-          el,
-          photo,
-          x0: body.position.x - w / 2,
-          y0: body.position.y - h / 2,
-          // Unwind the short way round, however many times the piece tumbled.
-          a0: Math.atan2(Math.sin(body.angle), Math.cos(body.angle)),
-          x1: photo ? rect.left + rect.width / 2 - w / 2 : rect.left,
-          y1: photo ? rect.top + rect.height / 2 - h / 2 : rect.top,
-          delay: Math.random() * RETURN_STAGGER_MS,
-        };
+      // Unwind the short way round, however many times the piece tumbled.
+      const settle = (angle) => Math.atan2(Math.sin(angle), Math.cos(angle));
+      const flights = state.pieces.flatMap(({ body, el, w, h, id, wi, photo }) => {
+        const delay = Math.random() * RETURN_STAGGER_MS;
+        const a0 = settle(body.angle);
+        if (!photo) {
+          const { rect } = homes[wi];
+          return [{ el, x0: body.position.x - w / 2, y0: body.position.y - h / 2, a0, x1: rect.left, y1: rect.top, delay }];
+        }
+        // The photo stays put and shrinks away while its words burst out of
+        // it: flung a little way first, each on its own arc, then home.
+        const burst = state.words.flatMap((word, i) => {
+          if (word.id !== id) return [];
+          const wordElement = wordEl(word);
+          wordElement.style.transform = "scale(0)";
+          state.layer.appendChild(wordElement);
+          return [{
+            el: wordElement,
+            x0: body.position.x - word.rect.width / 2,
+            y0: body.position.y - word.rect.height / 2,
+            a0,
+            x1: homes[i].rect.left,
+            y1: homes[i].rect.top,
+            delay,
+            arc: { x: (Math.random() - 0.5) * 90, y: -(20 + Math.random() * 60) },
+          }];
+        });
+        return [{ el, vanish: true, x0: body.position.x - w / 2, y0: body.position.y - h / 2, a0, delay }, ...burst];
       });
 
       const start = performance.now();
       const fly = (now) => {
         const elapsed = now - start;
-        flights.forEach(({ el, photo, x0, y0, a0, x1, y1, delay }) => {
+        flights.forEach(({ el, vanish, arc, x0, y0, a0, x1, y1, delay }) => {
           const t = Math.min(Math.max((elapsed - delay) / RETURN_MS, 0), 1);
+          if (vanish) {
+            const gone = Math.min(t * 3, 1);
+            el.style.transform = `translate(${x0}px, ${y0}px) rotate(${a0}rad) scale(${1 - gone})`;
+            el.style.opacity = 1 - gone;
+            return;
+          }
           // ease-in: a slow lift off the pile that keeps gathering speed, so the
           // word snaps onto its line instead of drifting in
           const k = t * t * t;
-          const shrink = photo ? ` scale(${1 - 0.8 * k})` : "";
-          el.style.transform = `translate(${x0 + (x1 - x0) * k}px, ${y0 + (y1 - y0) * k}px) rotate(${a0 * (1 - k)}rad)${shrink}`;
-          if (photo) el.style.opacity = 1 - k;
+          let x = x0 + (x1 - x0) * k;
+          let y = y0 + (y1 - y0) * k;
+          let scale = "";
+          if (arc) {
+            // Out and back: the fling is widest halfway and gone on landing.
+            const out = 4 * t * (1 - t);
+            x += arc.x * out;
+            y += arc.y * out;
+            // The same pop the pile uses, over the first quarter of the flight.
+            const grown = Math.min(t / 0.25, 1);
+            const back = 1 + 3.6 * (grown - 1) ** 3 + 2.6 * (grown - 1) ** 2;
+            scale = ` scale(${t ? POP_FROM + (1 - POP_FROM) * back : 0})`;
+          }
+          el.style.transform = `translate(${x}px, ${y}px) rotate(${a0 * (1 - k)}rad)${scale}`;
         });
-        if (fadeIn) contentEl.style.opacity = Math.min(elapsed / (RETURN_MS + RETURN_STAGGER_MS), 1) ** 2;
         if (elapsed < RETURN_MS + RETURN_STAGGER_MS) {
           state.raf = requestAnimationFrame(fly);
         } else {
@@ -1100,8 +1129,6 @@ export default function Home() {
       if (state.swap) state.swap.remove();
       if (state.engine) state.Matter.Engine.clear(state.engine);
       document.body.classList.remove("is-dumped");
-      contentEl.style.opacity = "";
-      contentEl.style.visibility = "";
     }
 
     function onDumpResize() {

@@ -1014,11 +1014,18 @@ export default function Home() {
 
     const RETURN_MS = 1000;
     const RETURN_STAGGER_MS = 200;
+    // Photos make a shorter flight, set off one after another down the list, so
+    // the rows fill in from the top at an even pace instead of all at the end.
+    // Together these stop just short of the full return, leaving the last row
+    // time to fade in.
+    const PHOTO_RETURN_MS = 600;
+    const PHOTO_STAGGER_MS = 480;
+    const ROW_FADE_MS = 120;
 
     // Leaving the dump: nothing just vanishes. Words fly back to the spot in the
     // list they fell from, and the real page is swapped in underneath. A photo
-    // flies to its row and shrinks into it, and the row's text shows the moment
-    // the photo arrives — one row at a time, each lit by its own photo.
+    // flies to its row and shrinks to the height of a line, and the row's text
+    // shows the moment the photo arrives — top row first, each lit by its own photo.
     // `animate: false` is for when those spots are about to move (a resize).
     function endDump({ animate = true } = {}) {
       if (!dumpState) return;
@@ -1068,6 +1075,9 @@ export default function Home() {
         state.blanked = [...rows.values()].flat();
       }
 
+      // Where each photo's row sits in the list as it is sorted now, 0 at the
+      // top and 1 at the bottom.
+      const rowTops = [...new Set(homes.filter((home) => home.id).map((home) => home.rect.top))].sort((a, b) => a - b);
       const flights = state.pieces.map(({ body, el, w, h, id, wi, photo }) => {
         // A photo heads for the first word of its row, the number.
         const { rect } = photo ? homes.find((home) => home.id === id) : homes[wi];
@@ -1080,7 +1090,12 @@ export default function Home() {
           a0: Math.atan2(Math.sin(body.angle), Math.cos(body.angle)),
           x1: photo ? rect.left + rect.width / 2 - w / 2 : rect.left,
           y1: photo ? rect.top + rect.height / 2 - h / 2 : rect.top,
-          delay: Math.random() * RETURN_STAGGER_MS,
+          // A photo ends up as tall as the line it lands on.
+          scale: photo ? rect.height / h : 1,
+          duration: photo ? PHOTO_RETURN_MS : RETURN_MS,
+          delay: photo
+            ? (rowTops.indexOf(rect.top) / Math.max(rowTops.length - 1, 1)) * PHOTO_STAGGER_MS
+            : Math.random() * RETURN_STAGGER_MS,
         };
       });
 
@@ -1088,15 +1103,19 @@ export default function Home() {
       const fly = (now) => {
         const elapsed = now - start;
         flights.forEach((flight) => {
-          const { el, lights, x0, y0, a0, x1, y1, delay } = flight;
-          const t = Math.min(Math.max((elapsed - delay) / RETURN_MS, 0), 1);
+          const { el, lights, x0, y0, a0, x1, y1, scale, duration, delay } = flight;
+          const t = Math.min(Math.max((elapsed - delay) / duration, 0), 1);
           // ease-in: a slow lift off the pile that keeps gathering speed, so the
           // piece snaps onto its line instead of drifting in
           const k = t * t * t;
-          const shrink = lights ? ` scale(${1 - 0.75 * k})` : "";
+          const shrink = lights ? ` scale(${1 - (1 - scale) * k})` : "";
           el.style.transform = `translate(${x0 + (x1 - x0) * k}px, ${y0 + (y1 - y0) * k}px) rotate(${a0 * (1 - k)}rad)${shrink}`;
           if (lights && t === 1 && !flight.landed) {
+            // The photo gives way to its row in one short cross-fade.
             flight.landed = true;
+            [el, ...lights].forEach((node) => {
+              node.style.transition = `opacity ${ROW_FADE_MS}ms ease`;
+            });
             el.style.opacity = 0;
             lights.forEach((li) => {
               li.style.opacity = "";
@@ -1124,6 +1143,7 @@ export default function Home() {
       if (state.blanked) {
         state.blanked.forEach((li) => {
           li.style.opacity = "";
+          li.style.transition = "";
         });
         dumpTrigger.style.visibility = "";
         contentEl.style.visibility = "";

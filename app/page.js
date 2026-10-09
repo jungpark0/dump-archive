@@ -17,6 +17,9 @@ export default function Home() {
     const popupImageB = document.getElementById("popup-image-b");
     const IMAGE_TRANSITION_MS = 300;
     const PEEK_W = 230;
+    // A print carries half again as many dots as CSS pixels: finer than one per
+    // pixel, coarse enough that the dots still read as dots.
+    const PRINT_SCALE = 1.5;
     let frontLayer = popupImageA;
     let backLayer = popupImageB;
     let layerSwapTimeout = null;
@@ -453,7 +456,7 @@ export default function Home() {
     function showPeek(id) {
       const item = items[indexById.get(id)];
       peekId = id;
-      printOf(item.printSrc, PEEK_W).then((url) => {
+      printOf(item.printSrc, Math.round(PEEK_W * PRINT_SCALE)).then((url) => {
         if (peekId === id) peekImg.src = url;
       });
       placePeek();
@@ -721,7 +724,7 @@ export default function Home() {
         const img = new Image();
         img.fetchPriority = "low";
         img.src = item.thumbSrc;
-        printOf(item.printSrc, PEEK_W);
+        printOf(item.printSrc, Math.round(PEEK_W * PRINT_SCALE));
         idle(next);
       })();
     }
@@ -755,10 +758,10 @@ export default function Home() {
           fullSrc: `${r.url}?w=${fullWidth}&${IMG_PARAMS}`,
           zoomSrc: dimsMatch ? `${r.url}?w=${dimsMatch[1]}&${IMG_PARAMS}` : `${r.url}?${IMG_PARAMS}`,
           thumbSrc: `${r.url}?w=500&${IMG_PARAMS}`,
-          // The hover thumbnail is printed from this, one dot per pixel of its width.
-          printSrc: `${r.url}?w=${PEEK_W}&auto=format&q=70`,
+          // The hover thumbnail is printed from this.
+          printSrc: `${r.url}?w=${PEEK_W * 2}&auto=format&q=70`,
           // For the dumped pile, where a photo is drawn up to 64px wide.
-          dumpSrc: `${r.url}?w=96&auto=format&q=50`,
+          dumpSrc: `${r.url}?w=192&auto=format&q=50`,
           width: dimsMatch ? Number(dimsMatch[1]) : null,
           height: dimsMatch ? Number(dimsMatch[2]) : null,
         };
@@ -942,7 +945,7 @@ export default function Home() {
 
       const el = document.createElement("img");
       el.className = "dump-word dump-photo";
-      printOf(item.dumpSrc, w).then((url) => { el.src = url; });
+      printOf(item.dumpSrc, Math.round(w * PRINT_SCALE)).then((url) => { el.src = url; });
       el.alt = "";
       el.draggable = false;
       el.style.width = `${w}px`;
@@ -1074,7 +1077,7 @@ export default function Home() {
       // already there if they are asked for.
       const photoW = dumpPhotoWidth();
       items.forEach((item) => {
-        printOf(item.dumpSrc, photoW);
+        printOf(item.dumpSrc, Math.round(photoW * PRINT_SCALE));
       });
 
       const mouse = Mouse.create(layer);

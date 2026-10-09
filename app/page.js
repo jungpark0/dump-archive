@@ -757,7 +757,7 @@ export default function Home() {
           thumbSrc: `${r.url}?w=500&${IMG_PARAMS}`,
           // The hover thumbnail is printed from this, one dot per pixel of its width.
           printSrc: `${r.url}?w=${PEEK_W}&auto=format&q=70`,
-          // For the dumped pile, where a photo is drawn about 50px wide.
+          // For the dumped pile, where a photo is drawn up to 64px wide.
           dumpSrc: `${r.url}?w=96&auto=format&q=50`,
           width: dimsMatch ? Number(dimsMatch[1]) : null,
           height: dimsMatch ? Number(dimsMatch[2]) : null,
@@ -923,7 +923,7 @@ export default function Home() {
     }
 
     function dumpPhotoWidth() {
-      return window.innerWidth < 768 ? 32 : 48;
+      return window.innerWidth < 768 ? 32 : 64;
     }
 
     // The words of one row give way to that row's photo, which appears where one

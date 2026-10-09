@@ -1192,11 +1192,17 @@ export default function Home() {
         flights.forEach((flight) => {
           const { el, lights, x0, y0, a0, x1, y1, scale, duration, delay } = flight;
           const t = Math.min(Math.max((elapsed - delay) / duration, 0), 1);
-          // ease-in: a slow lift off the pile that keeps gathering speed, so the
-          // piece snaps onto its line instead of drifting in
-          const k = t * t * t;
+          // A photo keeps gathering speed until it lands, since it vanishes into
+          // its row there. A word has to be seen arriving: a slow lift off the pile,
+          // most of the trip at speed, then it eases onto its line instead of
+          // stopping dead. It also straightens up before it gets there, so the last
+          // stretch is a level slide into place rather than a twist.
+          const p = t ** 1.7;
+          const k = lights ? t * t * t : p * p * (3 - 2 * p);
+          const u = Math.min(t / 0.75, 1);
+          const turn = lights ? k : u * u * (3 - 2 * u);
           const shrink = lights ? ` scale(${1 - (1 - scale) * k})` : "";
-          el.style.transform = `translate(${x0 + (x1 - x0) * k}px, ${y0 + (y1 - y0) * k}px) rotate(${a0 * (1 - k)}rad)${shrink}`;
+          el.style.transform = `translate(${x0 + (x1 - x0) * k}px, ${y0 + (y1 - y0) * k}px) rotate(${a0 * (1 - turn)}rad)${shrink}`;
           if (lights && t === 1 && !flight.landed) {
             // The photo gives way to its row in one short cross-fade.
             flight.landed = true;

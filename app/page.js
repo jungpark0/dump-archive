@@ -16,6 +16,7 @@ export default function Home() {
     const popupImageA = document.getElementById("popup-image-a");
     const popupImageB = document.getElementById("popup-image-b");
     const IMAGE_TRANSITION_MS = 300;
+    const PEEK_W = 230;
     let frontLayer = popupImageA;
     let backLayer = popupImageB;
     let layerSwapTimeout = null;
@@ -380,10 +381,69 @@ export default function Home() {
     // back to black under the overlay's fade instead of snapping.
     let unhoverTimer = null;
 
+    // Outside the popup a photo is shown the way a receipt printer would print it:
+    // black dots on white. Each pixel is compared against its place in a repeating
+    // 4×4 grid of cut-offs (ordered, or Bayer, dithering), so a grey comes out as a
+    // regular pattern that fills in as it darkens. Colour is kept for the popup.
+    const BAYER = [
+      0, 8, 2, 10,
+      12, 4, 14, 6,
+      3, 11, 1, 9,
+      15, 7, 13, 5,
+    ];
+
+    function dither(img, width) {
+      const height = Math.round(width * img.naturalHeight / img.naturalWidth);
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, width, height);
+      ctx.drawImage(img, 0, 0, width, height);
+
+      const image = ctx.getImageData(0, 0, width, height);
+      const px = image.data;
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const i = (y * width + x) * 4;
+          const lum = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
+          const cutOff = (BAYER[(y % 4) * 4 + (x % 4)] + 0.5) / 16 * 255;
+          px[i] = px[i + 1] = px[i + 2] = lum > cutOff ? 255 : 0;
+        }
+      }
+      ctx.putImageData(image, 0, 0);
+      return canvas.toDataURL();
+    }
+
+    // Each print is made once. If the photo can't be read back (a failed or
+    // cross-origin-blocked load) the plain photo stands in.
+    const prints = new Map();
+    function printOf(src, width) {
+      const key = `${width}|${src}`;
+      if (!prints.has(key)) {
+        prints.set(key, new Promise((resolve) => {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.onload = () => {
+            try {
+              resolve(dither(img, width));
+            } catch {
+              resolve(src);
+            }
+          };
+          img.onerror = () => resolve(src);
+          img.src = src;
+        }));
+      }
+      return prints.get(key);
+    }
+
     let mx = 0;
     let my = 0;
+    let peekId = null;
     function placePeek() {
-      const w = 230;
+      const w = PEEK_W;
       const h = peekImg.naturalHeight ? (w * peekImg.naturalHeight) / peekImg.naturalWidth : 280;
       const x = Math.min(mx + 20, window.innerWidth - w - 12);
       const y = Math.min(my + 16, window.innerHeight - h - 12);
@@ -392,7 +452,10 @@ export default function Home() {
 
     function showPeek(id) {
       const item = items[indexById.get(id)];
-      peekImg.src = item.thumbSrc;
+      peekId = id;
+      printOf(item.printSrc, PEEK_W).then((url) => {
+        if (peekId === id) peekImg.src = url;
+      });
       placePeek();
       peek.classList.add("is-on");
 
@@ -658,6 +721,7 @@ export default function Home() {
         const img = new Image();
         img.fetchPriority = "low";
         img.src = item.thumbSrc;
+        printOf(item.printSrc, PEEK_W);
         idle(next);
       })();
     }
@@ -691,6 +755,8 @@ export default function Home() {
           fullSrc: `${r.url}?w=${fullWidth}&${IMG_PARAMS}`,
           zoomSrc: dimsMatch ? `${r.url}?w=${dimsMatch[1]}&${IMG_PARAMS}` : `${r.url}?${IMG_PARAMS}`,
           thumbSrc: `${r.url}?w=500&${IMG_PARAMS}`,
+          // The hover thumbnail is printed from this, one dot per pixel of its width.
+          printSrc: `${r.url}?w=${PEEK_W}&auto=format&q=70`,
           // For the dumped pile, where a photo is drawn about 50px wide.
           dumpSrc: `${r.url}?w=96&auto=format&q=50`,
           width: dimsMatch ? Number(dimsMatch[1]) : null,
@@ -856,6 +922,10 @@ export default function Home() {
       state.pieces = state.pieces.filter((piece) => !test(piece));
     }
 
+    function dumpPhotoWidth() {
+      return window.innerWidth < 768 ? 32 : 48;
+    }
+
     // The words of one row give way to that row's photo, which appears where one
     // of them was lying.
     function popPhoto(state, item) {
@@ -865,14 +935,14 @@ export default function Home() {
       const from = own[Math.floor(Math.random() * own.length)].body;
       clearPieces(state, (piece) => own.includes(piece));
 
-      const w = window.innerWidth < 768 ? 32 : 48;
+      const w = dumpPhotoWidth();
       const h = Math.round(w * (item.width && item.height ? item.height / item.width : 4 / 3));
       const body = Bodies.rectangle(from.position.x, Math.min(from.position.y, state.floorY - 4), w, h, PIECE);
       const pop = launch(state, body, from.angle);
 
       const el = document.createElement("img");
       el.className = "dump-word dump-photo";
-      el.src = item.dumpSrc;
+      printOf(item.dumpSrc, w).then((url) => { el.src = url; });
       el.alt = "";
       el.draggable = false;
       el.style.width = `${w}px`;
@@ -1002,8 +1072,9 @@ export default function Home() {
 
       // Fetched now, while the words are still falling, so the photos are
       // already there if they are asked for.
+      const photoW = dumpPhotoWidth();
       items.forEach((item) => {
-        new Image().src = item.dumpSrc;
+        printOf(item.dumpSrc, photoW);
       });
 
       const mouse = Mouse.create(layer);

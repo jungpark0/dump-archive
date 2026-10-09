@@ -923,7 +923,7 @@ export default function Home() {
     }
 
     function dumpPhotoWidth() {
-      return window.innerWidth < 768 ? 32 : 64;
+      return window.innerWidth < 768 ? 40 : 64;
     }
 
     // The words of one row give way to that row's photo, which appears where one

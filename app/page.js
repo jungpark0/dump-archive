@@ -240,7 +240,6 @@ export default function Home() {
     function closePopup() {
       setZoom(false);
       popupOverlay.classList.remove("is-active");
-      releaseHeldHover();
     }
 
     // Zoom takes the photo as large as the window allows and loads it at full
@@ -377,11 +376,8 @@ export default function Home() {
     // a real pointer only, the same test globals.css uses for the peek.
     const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)");
 
-    // The popup covers the list, which ends the row hover the click came from. Let
-    // go of it right then and the dimmed list snaps back to black behind the blur,
-    // so the hover is held until the popup closes.
-    let heldHoverId = null;
-    let releaseHeldHover = () => {};
+    // Opening the popup ends the row hover it was clicked from. The list eases
+    // back to black under the overlay's fade instead of snapping.
     let unhoverTimer = null;
 
     let mx = 0;
@@ -525,33 +521,12 @@ export default function Home() {
         document.body.classList.toggle("is-hovering", on);
       }
 
-      function leaveRow(id) {
-        hidePeek();
-        if (popupOverlay.classList.contains("is-active") && document.body.classList.contains("is-hovering")) {
-          heldHoverId = id;
-          return;
-        }
-        setHoverLinked(id, false);
-      }
-
-      // If the pointer is back on a row the hover moves straight to it. Otherwise
-      // the list eases to black along with the overlay's fade.
-      releaseHeldHover = () => {
-        if (heldHoverId === null) return;
-        setHoverLinked(heldHoverId, false);
-        heldHoverId = null;
-
-        const row = document.elementFromPoint(mx, my)?.closest(".index-list a, .title-list li, .log-list li");
-        const id = row?.closest("[data-id]").dataset.id;
-        if (id && finePointer.matches) {
-          showPeek(id);
-          setHoverLinked(id, true);
-          return;
-        }
+      function easeOutHover(id) {
         document.body.classList.add("is-unhovering");
+        setHoverLinked(id, false);
         clearTimeout(unhoverTimer);
         unhoverTimer = setTimeout(() => document.body.classList.remove("is-unhovering"), IMAGE_TRANSITION_MS);
-      };
+      }
 
       indexLinkById.forEach((link, id) => {
         link.addEventListener("mouseenter", () => {
@@ -559,10 +534,14 @@ export default function Home() {
           showPeek(id);
           setHoverLinked(id, true);
         });
-        link.addEventListener("mouseleave", () => leaveRow(id));
+        link.addEventListener("mouseleave", () => {
+          hidePeek();
+          setHoverLinked(id, false);
+        });
         link.addEventListener("click", (e) => {
           e.preventDefault();
           hidePeek();
+          easeOutHover(id);
           openPopup(indexById.get(id));
         });
       });
@@ -573,9 +552,13 @@ export default function Home() {
           showPeek(id);
           setHoverLinked(id, true);
         });
-        li.addEventListener("mouseleave", () => leaveRow(id));
+        li.addEventListener("mouseleave", () => {
+          hidePeek();
+          setHoverLinked(id, false);
+        });
         li.addEventListener("click", () => {
           hidePeek();
+          easeOutHover(id);
           openPopup(indexById.get(id));
         });
       });

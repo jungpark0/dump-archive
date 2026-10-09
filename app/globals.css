@@ -370,9 +370,9 @@ body.is-hovering .log-list li:not(.is-hover-linked) {
     color: gainsboro;
 }
 
-/* closing the popup lets go of the hover it was holding: the list eases back
-   to black with the overlay's fade. !important because a sorted row still
-   carries its inline transform transition */
+/* opening the popup ends the row hover: the list eases back to black with the
+   overlay's fade. !important because a sorted row still carries its inline
+   transform transition */
 body.is-unhovering .index-list a,
 body.is-unhovering .title-list li,
 body.is-unhovering .log-list li {

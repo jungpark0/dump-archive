@@ -1192,13 +1192,12 @@ export default function Home() {
         flights.forEach((flight) => {
           const { el, lights, x0, y0, a0, x1, y1, scale, duration, delay } = flight;
           const t = Math.min(Math.max((elapsed - delay) / duration, 0), 1);
-          // A photo keeps gathering speed until it lands, since it vanishes into
-          // its row there. A word has to be seen arriving: a slow lift off the pile,
-          // most of the trip at speed, then it eases onto its line instead of
-          // stopping dead. It also straightens up before it gets there, so the last
-          // stretch is a level slide into place rather than a twist.
-          const p = t ** 1.7;
-          const k = lights ? t * t * t : p * p * (3 - 2 * p);
+          // ease-in: a slow lift off the pile that keeps gathering speed, so the
+          // piece snaps onto its line instead of drifting in. A word straightens
+          // up before it gets there, so the last stretch is a level run into
+          // place rather than a twist; a photo is still turning as it vanishes
+          // into its row.
+          const k = t * t * t;
           const u = Math.min(t / 0.75, 1);
           const turn = lights ? k : u * u * (3 - 2 * u);
           const shrink = lights ? ` scale(${1 - (1 - scale) * k})` : "";

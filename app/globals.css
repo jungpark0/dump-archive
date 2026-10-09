@@ -370,6 +370,15 @@ body.is-hovering .log-list li:not(.is-hover-linked) {
     color: gainsboro;
 }
 
+/* closing the popup lets go of the hover it was holding: the list eases back
+   to black with the overlay's fade. !important because a sorted row still
+   carries its inline transform transition */
+body.is-unhovering .index-list a,
+body.is-unhovering .title-list li,
+body.is-unhovering .log-list li {
+    transition: color 0.3s ease !important;
+}
+
 /* ---------- footer ---------- */
 
 footer {
@@ -458,10 +467,18 @@ body:has(.popup-overlay.is-active) {
     user-select: none;
 }
 
+/* eases up to size on the way in and back down on the way out, under the
+   overlay's fade */
 .popup-content {
     display: flex;
     flex-direction: column;
     align-items: center;
+    transform: scale(0.96);
+    transition: transform 0.3s ease;
+}
+
+.popup-overlay.is-active .popup-content {
+    transform: none;
 }
 
 .popup-image-stack {

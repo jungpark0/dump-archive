@@ -67,6 +67,12 @@ export default function Home() {
       contentEl.style.minHeight = needed ? `${needed}px` : "";
     }
 
+    // What a nav opens starts at the top of the page. Scrolled down, it would open
+    // out of sight and the click would look like it did nothing.
+    function toTop() {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
     // The intro text and the INDEX group share the same area, so only one can be open at a time.
     function closeIndex() {
       document.body.classList.remove("is-index-open", "is-titles-open", "is-log-open");
@@ -79,6 +85,7 @@ export default function Home() {
       } else {
         document.body.classList.add("is-index-open", "has-opened-index");
         document.body.classList.remove("is-intro-open");
+        toTop();
       }
       updateContentMinHeight();
     }
@@ -94,6 +101,7 @@ export default function Home() {
       document.body.classList.toggle("is-intro-open");
       if (document.body.classList.contains("is-intro-open")) {
         closeIndex();
+        toTop();
       }
       updateContentMinHeight();
     }

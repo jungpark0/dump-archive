@@ -938,7 +938,7 @@ export default function Home() {
         `<path class="receipt-photo" transform="translate(2.85 ${(photoTop + i * (photoH + 2)).toFixed(2)})"/>`
       ).join("");
 
-      // When and where the printed photo was taken, standing on the photos' bottom
+      // When and where the printed photo was taken, its descenders on the photos' bottom
       // edge in the INDEX column. A line that is too long wraps inside that column.
       const photoEnd = photoTop + 3 * photoH + 4;
       const wide = (str) => [...str].reduce((w, ch) => w + (ch === " " ? 4.169 : 6.325), 0);
@@ -949,9 +949,9 @@ export default function Home() {
         else lines.push(word);
       });
       const caption = lines.map((line, i) =>
-        text(160.88, photoEnd - (lines.length - 1 - i) * 15, escapeHtml(line))
+        text(160.88, photoEnd - 3 - (lines.length - 1 - i) * 15, escapeHtml(line))
       ).join("");
-      const foot = Math.max(lastRow, photoEnd) + 37.98;
+      const foot = Math.max(lastRow, photoEnd - 3) + 30;
       const count = String(n).padStart(3, "0");
       const when = new Date(lastDumpAt).toLocaleString("sv-SE").slice(0, 16);
       const height = foot + 90.01 + 19.17;

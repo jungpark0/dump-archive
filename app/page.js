@@ -384,8 +384,6 @@ export default function Home() {
     // Opening the popup ends the row hover it was clicked from. The list eases
     // back to black under the overlay's fade instead of snapping.
     let unhoverTimer = null;
-    let tappedId = null;
-    let untap = () => {};
 
     // Outside the popup a photo is shown the way a receipt printer would print it:
     // black dots on white. Each pixel is compared against its place in a repeating
@@ -495,15 +493,6 @@ export default function Home() {
 
     document.addEventListener("mousemove", onDocMouseMove);
 
-    // A tapped row lets go when the tap lands anywhere else, or the page moves.
-    function onDocClick(e) {
-      if (!e.target.closest("#index-list, #title-list, #log-list")) untap();
-    }
-    function onScroll() {
-      untap();
-    }
-    document.addEventListener("click", onDocClick);
-    window.addEventListener("scroll", onScroll, { passive: true });
     peekImg.addEventListener("load", placePeek);
 
     function onOverlayClick(e) {
@@ -511,6 +500,8 @@ export default function Home() {
         closePopup();
       }
     }
+    const popupCloseBtn = document.getElementById("popup-close");
+    popupCloseBtn.addEventListener("click", closePopup);
     popupOverlay.addEventListener("click", onOverlayClick);
 
     function onKeyDown(e) {
@@ -608,31 +599,12 @@ export default function Home() {
         unhoverTimer = setTimeout(() => document.body.classList.remove("is-unhovering"), IMAGE_TRANSITION_MS);
       }
 
-      // A touch screen has no hover, so the first tap on a row stands in for it
-      // (thumbnail, underline) and a second tap on the same row opens the photo.
       function onRowClick(id, e) {
         e.preventDefault();
-        if (!finePointer.matches && tappedId !== id) {
-          if (tappedId) setHoverLinked(tappedId, false);
-          tappedId = id;
-          mx = e.clientX;
-          my = e.clientY;
-          showPeek(id);
-          setHoverLinked(id, true);
-          return;
-        }
-        tappedId = null;
         hidePeek();
         easeOutHover(id);
         openPopup(indexById.get(id));
       }
-
-      untap = () => {
-        if (!tappedId) return;
-        setHoverLinked(tappedId, false);
-        tappedId = null;
-        hidePeek();
-      };
 
       indexLinkById.forEach((link, id) => {
         link.addEventListener("mouseenter", () => {
@@ -1650,9 +1622,8 @@ export default function Home() {
       popupImageStack.removeEventListener("touchstart", onStackTouchStart);
       popupImageStack.removeEventListener("touchend", onStackTouchEnd);
       document.removeEventListener("mousemove", onDocMouseMove);
-      document.removeEventListener("click", onDocClick);
-      window.removeEventListener("scroll", onScroll);
       peekImg.removeEventListener("load", placePeek);
+      popupCloseBtn.removeEventListener("click", closePopup);
       popupOverlay.removeEventListener("click", onOverlayClick);
       document.removeEventListener("keydown", onKeyDown);
       sortDateBtn.removeEventListener("click", onSortDateClick);
@@ -1711,6 +1682,7 @@ export default function Home() {
           </div>
           <div className="popup-meta-note" id="popup-meta-note"></div>
         </div>
+        <button type="button" className="popup-close" id="popup-close">CLOSE</button>
         <div className="popup-content">
           <div className="popup-image-stack" id="popup-image-stack">
             <img className="popup-image-layer" id="popup-image-a" alt="" decoding="async" fetchPriority="high" />

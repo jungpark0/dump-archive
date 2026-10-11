@@ -674,8 +674,10 @@ footer div:nth-of-type(1) {
     display: block;
 }
 
-.peek.is-on {
-    opacity: 1;
+@media (hover: hover) and (pointer: fine) {
+    .peek.is-on {
+        opacity: 1;
+    }
 }
 
 /* ---------- popup ---------- */
@@ -796,6 +798,24 @@ body:has(.popup-overlay.is-active) {
     text-decoration: underline;
 }
 
+/* CLOSE: the same corner as the receipt's */
+.popup-close {
+    position: absolute;
+    top: 0;
+    right: .15rem;
+    z-index: 1;
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+}
+
+.popup-close:hover {
+    text-decoration: underline;
+}
+
 .popup-meta-wherewhen {
     grid-column: 5 / span 2;
     grid-row: 1;
@@ -819,6 +839,14 @@ body:has(.popup-overlay.is-active) {
     grid-row: 1;
     /* a note keeps the line breaks and spacing it was typed with */
     white-space: pre-wrap;
+}
+
+/* the first line of whatever runs into CLOSE's corner stops short of it */
+.popup-meta-note::before {
+    content: "";
+    float: right;
+    width: 6ch;
+    height: 15px;
 }
 
 .popup-meta > div:empty:not(.popup-meta-blank),
@@ -885,9 +913,14 @@ body:has(.popup-overlay.is-active) {
         grid-column: 9 / span 4;
     }
 
-    /* receipt: PRINT and CLOSE at either edge */
+    /* receipt: PRINT and CLOSE at either edge, on a strip like the header's that
+       the paper starts under */
     .receipt-bar {
         justify-content: space-between;
+        height: auto;
+        margin: 0 -16px;
+        padding: 0 .15rem;
+        background-color: #fff;
     }
 
     .last-dump {
@@ -907,8 +940,21 @@ body:has(.popup-overlay.is-active) {
         grid-column: 1 / span 5;
     }
 
+    /* here the place is what runs into CLOSE's corner; it may take a second line */
     .popup-meta-wherewhen {
         grid-column: 6 / span 7;
+        grid-template-rows: minmax(15px, auto) auto;
+    }
+
+    .popup-meta-where::before {
+        content: "";
+        float: right;
+        width: 6ch;
+        height: 15px;
+    }
+
+    .popup-meta-note::before {
+        content: none;
     }
 
     .popup-meta-where {

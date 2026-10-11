@@ -410,6 +410,9 @@ footer div:nth-of-type(1) {
     grid-column: 11 / span 2;
     grid-row: 1;
     justify-self: end;
+    /* LAST DUMP's box runs to the same edge and would sit on top */
+    position: relative;
+    z-index: 1;
     font: inherit;
     color: inherit;
     background: none;

@@ -807,6 +807,7 @@ export default function Home() {
       updateSortButtonsUI();
       prefetchThumbs();
       buildReceipt();
+      layPile();
     }
 
     // Odometer-style roll: each digit spins through a stacked 0-9 strip (more
@@ -864,7 +865,6 @@ export default function Home() {
     const printBtn = document.getElementById("print-btn");
     const RECEIPT_PHOTO_W = 144;
     const RECEIPT_ROW_H = 15.004;
-    const pageStyle = document.head.appendChild(document.createElement("style"));
     let lastDumpAt = "";
     let receiptId = null;
 
@@ -942,17 +942,13 @@ export default function Home() {
         + text(2.85, foot, `${count} ITEMS, UNSORTED`) + text(2.85, foot + 15, `LAST DUMP ${when}`)
         + text(2.85, foot + 45.01, location.host) + text(2.85, foot + 60.01, "© 2026 JUNGPARK. ALL RIGHTS RESERVED")
         + "</svg>";
-      // Where the browser allows it, the page is cut to the receipt: 48mm across and
-      // as long as the list makes it.
-      pageStyle.textContent = `@page { size: 48mm ${(height * 0.125 + 0.2).toFixed(2)}mm; margin: 0; }`;
-
       const paths = receiptPaper.querySelectorAll(".receipt-photo");
       return printOf(item.printSrc, RECEIPT_PHOTO_W).then(dotsOf).then((d) => {
         paths.forEach((path) => path.setAttribute("d", d));
       });
     }
 
-    // PRINT RECEIPT shows the receipt first; it is printed from there.
+    // RECEIPT shows the receipt first; it is printed from there.
     const receiptPrintBtn = document.getElementById("receipt-print");
     const receiptCloseBtn = document.getElementById("receipt-close");
     function openReceipt() {
@@ -1411,6 +1407,178 @@ export default function Home() {
     }
 
     dumpTrigger.addEventListener("click", startDump);
+
+    // ---------- landing pile ----------
+
+    // On the first load a few photos are already lying on the floor under the
+    // intro, so the page says what it is before anything has been clicked. Where
+    // they lie is worked out by dropping them out of sight; each then pops up
+    // from its spot the way a photo pops out of its words, and can be picked up
+    // and thrown like the dumped ones. They go for good once the intro closes or
+    // the real dump starts.
+    const PILE_COUNT = 8;
+    let pile = null;
+
+    function phraseRect() {
+      const walker = document.createTreeWalker(textEl, NodeFilter.SHOW_TEXT);
+      let node;
+      while ((node = walker.nextNode())) {
+        const at = node.textContent.indexOf("(Literally a dump.)");
+        if (at < 0) continue;
+        const range = document.createRange();
+        range.setStart(node, at);
+        range.setEnd(node, at + "(Literally a dump.)".length);
+        // Wrapped onto two lines on a phone: the last one is where it ends.
+        const rects = range.getClientRects();
+        return rects[rects.length - 1];
+      }
+      return null;
+    }
+
+    function pileWalls(Bodies) {
+      const width = window.innerWidth;
+      const floorY = window.innerHeight - document.querySelector("footer").offsetHeight;
+      const WALL = 200;
+      return [
+        Bodies.rectangle(width / 2, floorY + WALL / 2, width * 2, WALL, { isStatic: true }),
+        Bodies.rectangle(-WALL / 2, 0, WALL, floorY * 6, { isStatic: true }),
+        Bodies.rectangle(width + WALL / 2, 0, WALL, floorY * 6, { isStatic: true }),
+      ];
+    }
+
+    async function layPile() {
+      if (pile || dumpState || !items.length || !document.body.classList.contains("is-intro-open")) return;
+      const state = {};
+      pile = state;
+      let Matter;
+      try {
+        Matter = (await import("matter-js")).default;
+      } catch {
+        return;
+      }
+      const from = phraseRect();
+      if (pile !== state || !from) return;
+
+      const { Engine, Bodies, Body, Composite, Mouse, MouseConstraint } = Matter;
+      const engine = Engine.create();
+      let walls = pileWalls(Bodies);
+      Composite.add(engine.world, walls);
+
+      // Tossed one after another from "(Literally a dump.)" in the first line.
+      const w = dumpPhotoWidth();
+      const pool = items.slice();
+      const pieces = [];
+      for (let i = 0; i < PILE_COUNT && pool.length; i++) {
+        const item = pool.splice(Math.floor(Math.random() * pool.length), 1)[0];
+        const h = Math.round(w * item.aspect);
+        const body = Bodies.rectangle(from.left + Math.random() * from.width, from.top + from.height / 2, w, h, PIECE);
+        Body.setAngle(body, (Math.random() - 0.5) * 0.6);
+        Body.setVelocity(body, { x: (Math.random() - 0.5) * 4, y: -(7 + Math.random() * 4) });
+        Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.2);
+        Composite.add(engine.world, body);
+        pieces.push({ item, body, w, h });
+        for (let n = 0; n < 14; n++) Engine.update(engine, 16);
+      }
+      for (let n = 0; n < 600; n++) Engine.update(engine, 16);
+      // Off the floor again until each one"s moment to pop.
+      Composite.remove(engine.world, pieces.map((piece) => piece.body));
+
+      const layer = document.createElement("div");
+      layer.className = "dump-layer pile-layer";
+      Object.assign(state, { Matter, engine, layer, timers: [] });
+      const draw = (now) => pieces.forEach((piece) => {
+        if (!piece.live) return;
+        const { body, el, w, h } = piece;
+        const scale = piece.pop ? growPiece(state, piece, now) : "";
+        el.style.transform = `translate(${body.position.x - w / 2}px, ${body.position.y - h / 2}px) rotate(${body.angle}rad)${scale}`;
+      });
+      const prints = pieces.map((piece) => {
+        const el = document.createElement("img");
+        el.className = "dump-word dump-photo";
+        el.alt = "";
+        el.draggable = false;
+        el.style.width = `${piece.w}px`;
+        el.style.height = `${piece.h}px`;
+        // Drawn once it pops; until then it would sit at the layer"s corner.
+        el.style.transform = "scale(0)";
+        piece.el = el;
+        layer.appendChild(el);
+        return printOf(piece.item.dumpSrc, Math.round(piece.w * PRINT_SCALE)).then((url) => {
+          el.src = url;
+          return el.decode().catch(() => {});
+        });
+      });
+
+      // Only the photos take the pointer, so the page under the layer still works.
+      // Holding on to the pointer keeps a fast drag from slipping off the photo.
+      const mouse = Mouse.create(layer);
+      mouse.element.removeEventListener("wheel", mouse.mousewheel);
+      Composite.add(engine.world, MouseConstraint.create(engine, { mouse, constraint: { stiffness: 0.2 } }));
+
+      // The pile lies still most of the time, so it is only stepped while something moves.
+      let last = 0;
+      let still = 0;
+      const step = (now) => {
+        Engine.update(engine, Math.min(now - last, 32));
+        last = now;
+        draw(now);
+        const moving = mouse.button === 0 || pieces.some(({ body, live, pop }) => !live || pop || body.speed > 0.05 || Math.abs(body.angularSpeed) > 0.002);
+        still = moving ? 0 : still + 1;
+        state.raf = still < 60 ? requestAnimationFrame(step) : null;
+      };
+      state.wake = () => {
+        if (state.raf) return;
+        last = performance.now();
+        still = 0;
+        state.raf = requestAnimationFrame(step);
+      };
+      layer.addEventListener("pointerdown", (e) => {
+        if (e.target !== layer) e.target.setPointerCapture(e.pointerId);
+        state.wake();
+      });
+      // The floor moves with the window (a phone's toolbar sliding away).
+      state.refit = () => {
+        Composite.remove(engine.world, walls);
+        walls = pileWalls(Bodies);
+        Composite.add(engine.world, walls);
+        state.wake();
+      };
+
+      await Promise.all(prints);
+      if (pile !== state) return;
+      document.body.appendChild(layer);
+      // Popcorn, like the swap: every photo goes off at its own moment.
+      pieces.forEach((piece) => {
+        state.timers.push(setTimeout(() => {
+          Composite.add(engine.world, piece.body);
+          piece.pop = launch(state, piece.body, piece.body.angle);
+          piece.live = true;
+          state.wake();
+        }, Math.random() * POP_SPREAD_MS));
+      });
+    }
+
+    function clearPile() {
+      if (!pile) return;
+      const { layer, raf, timers = [] } = pile;
+      // Kept as a marker: there is only ever the one pile.
+      pile = {};
+      timers.forEach(clearTimeout);
+      cancelAnimationFrame(raf);
+      if (!layer) return;
+      layer.classList.add("is-leaving");
+      setTimeout(() => layer.remove(), 300);
+    }
+
+    // The intro closing and the dump starting both show up as a class on the body.
+    const pileWatch = new MutationObserver(() => {
+      if (!document.body.classList.contains("is-intro-open") || document.body.classList.contains("is-dumped")) clearPile();
+    });
+    pileWatch.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+    function onPileResize() {
+      if (pile && pile.refit) pile.refit();
+    }
+    window.addEventListener("resize", onPileResize);
     // Any header click puts the page back together, and does only that —
     // letting the nav's own toggle run as well would collapse what the restore
     // just reopened.
@@ -1437,7 +1605,12 @@ export default function Home() {
       document.removeEventListener("keydown", onReceiptKeyDown);
       closeReceipt();
       window.removeEventListener("beforeprint", onBeforePrint);
-      pageStyle.remove();
+      pileWatch.disconnect();
+      window.removeEventListener("resize", onPileResize);
+      if (pile) cancelAnimationFrame(pile.raf);
+      if (pile && pile.timers) pile.timers.forEach(clearTimeout);
+      if (pile && pile.layer) pile.layer.remove();
+      pile = {};
       endDump({ animate: false });
       dumpTrigger.removeEventListener("click", startDump);
       headerEl.removeEventListener("click", onHeaderClickWhileDumped, true);
@@ -1527,14 +1700,20 @@ export default function Home() {
           <button type="button" id="receipt-print">PRINT</button>
           <button type="button" id="receipt-close">CLOSE</button>
         </div>
-        <div className="receipt-paper" id="receipt-paper"></div>
+        <div className="receipt-sheet">
+          <div className="receipt-paper" id="receipt-paper"></div>
+          <i className="receipt-mark is-tl"></i>
+          <i className="receipt-mark is-tr"></i>
+          <i className="receipt-mark is-bl"></i>
+          <i className="receipt-mark is-br"></i>
+        </div>
       </div>
 
       <footer>
         <div className="footer">
           <span>© 2026 JUNGPARK. ALL RIGHTS RESERVED</span>
         </div>
-        <button type="button" className="print-btn" id="print-btn">PRINT RECEIPT</button>
+        <button type="button" className="print-btn" id="print-btn">RECEIPT</button>
         <div className="last-dump" id="last-dump"></div>
       </footer>
     </>

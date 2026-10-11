@@ -268,6 +268,18 @@ body.is-dumped .content {
 }
 
 /* swapped out of the pile: fades where it lies rather than blinking off */
+/* the few photos lying under the intro: they take the pointer, the layer
+   itself lets it through to the page */
+.pile-layer {
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.pile-layer .dump-photo {
+    pointer-events: auto;
+    touch-action: none;
+}
+
 .dump-word.is-leaving {
     opacity: 0;
     transition: opacity 0.2s ease;
@@ -432,7 +444,7 @@ footer div:nth-of-type(1) {
 
 /* ---------- receipt ---------- */
 
-/* PRINT RECEIPT lays the receipt over the page; printing (from there or with
+/* RECEIPT lays the receipt over the page; printing (from there or with
    Cmd+P) puts only the paper on the page, at its true size. */
 .receipt {
     position: fixed;
@@ -458,18 +470,26 @@ footer div:nth-of-type(1) {
     transition: opacity 0.3s ease;
 }
 
-.receipt-bar,
-.receipt-paper {
-    max-width: 384px;
-    margin: 0 auto;
-}
-
+/* PRINT and CLOSE take the header's right-hand slot, where DATE and A–Z sit */
 .receipt-bar {
     position: sticky;
     top: 0;
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-end;
+    gap: .6rem;
+    margin: 0 calc(.15rem - 16px);
     padding-bottom: 30px;
+}
+
+.receipt-sheet {
+    position: relative;
+    max-width: 384px;
+    margin: 0 auto;
+}
+
+/* crop marks: only on paper */
+.receipt-mark {
+    display: none;
 }
 
 .receipt-bar button {
@@ -515,6 +535,10 @@ footer div:nth-of-type(1) {
 }
 
 @media print {
+    @page {
+        margin: 0;
+    }
+
     html,
     body {
         height: auto;
@@ -541,11 +565,65 @@ footer div:nth-of-type(1) {
         display: none;
     }
 
-    .receipt-paper {
+    /* Room around the receipt for the crop marks: each is 4mm long and stops
+       2mm short of the corner it points at. */
+    .receipt-sheet {
         width: 48mm;
         max-width: none;
-        box-shadow: none;
+        margin: 10mm auto;
         break-inside: avoid;
+    }
+
+    .receipt-paper {
+        box-shadow: none;
+    }
+
+    .receipt-mark {
+        display: block;
+        position: absolute;
+        top: 0;
+        left: 0;
+    }
+
+    .receipt-mark.is-tr,
+    .receipt-mark.is-br {
+        left: 100%;
+    }
+
+    .receipt-mark.is-bl,
+    .receipt-mark.is-br {
+        top: 100%;
+    }
+
+    /* borders, not backgrounds: browsers leave backgrounds off a printout */
+    .receipt-mark::before,
+    .receipt-mark::after {
+        content: '';
+        position: absolute;
+    }
+
+    .receipt-mark::before {
+        top: -0.05mm;
+        left: -6mm;
+        width: 4mm;
+        border-top: 0.1mm solid #000;
+    }
+
+    .receipt-mark::after {
+        top: -6mm;
+        left: -0.05mm;
+        height: 4mm;
+        border-left: 0.1mm solid #000;
+    }
+
+    .receipt-mark.is-tr::before,
+    .receipt-mark.is-br::before {
+        left: 2mm;
+    }
+
+    .receipt-mark.is-bl::after,
+    .receipt-mark.is-br::after {
+        top: 2mm;
     }
 }
 
@@ -775,6 +853,11 @@ body:has(.popup-overlay.is-active) {
 
     .print-btn {
         grid-column: 9 / span 4;
+    }
+
+    /* receipt: PRINT and CLOSE at either edge */
+    .receipt-bar {
+        justify-content: space-between;
     }
 
     .last-dump {

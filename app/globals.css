@@ -913,12 +913,16 @@ body:has(.popup-overlay.is-active) {
         grid-column: 9 / span 4;
     }
 
-    /* receipt: PRINT and CLOSE at either edge, on a strip like the header's that
-       the paper starts under */
+    /* receipt: PRINT and CLOSE at either edge, on a strip like the header's; the
+       paper keeps the same 16px from it and from the bottom as from the sides */
+    .receipt {
+        padding-bottom: 16px;
+    }
+
     .receipt-bar {
         justify-content: space-between;
         height: auto;
-        margin: 0 -16px;
+        margin: 0 -16px 16px;
         padding: 0 .15rem;
         background-color: #fff;
     }
@@ -944,6 +948,7 @@ body:has(.popup-overlay.is-active) {
     .popup-meta-wherewhen {
         grid-column: 6 / span 7;
         grid-template-rows: minmax(15px, auto) auto;
+        align-content: start;
     }
 
     .popup-meta-where::before {

@@ -1426,7 +1426,7 @@ export default function Home() {
     // from its spot the way a photo pops out of its words, and can be picked up
     // and thrown like the dumped ones. They go for good once the intro closes or
     // the real dump starts.
-    const PILE_COUNT = 8;
+    const PILE_COUNT = 14;
     let pile = null;
 
     function phraseRect() {

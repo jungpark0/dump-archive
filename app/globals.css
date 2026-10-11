@@ -409,14 +409,25 @@ footer {
     bottom: 0;
     width: 100%;
     z-index: 110;
-    background-color: #fff;
+    /* nothing in it is clickable, and RECEIPT sits underneath its corner */
+    pointer-events: none;
     padding: 0 0.15rem;
     display: grid;
     grid-template-columns: repeat(12, 1fr);
 }
 
-.popup-overlay.is-active ~ footer {
-    background-color: transparent;
+/* The footer's white strip is its own layer, under the photo popup: the footer's
+   text stays in front of the popup, while the strip and RECEIPT go behind it and
+   blur in and out with the overlay's fade, as the header does. */
+body::after {
+    content: "";
+    position: fixed;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    height: 15px;
+    z-index: 94;
+    background-color: #fff;
 }
 
 footer div {
@@ -428,15 +439,13 @@ footer div:nth-of-type(1) {
 }
 
 /* RECEIPT: the footer's far right corner, under the sort buttons. It sits there
-   on its own rather than inside the footer so that it can drop behind the photo
-   popup with the header's navs, which the footer itself stays in front of. */
+   on its own rather than inside the footer, between the strip and the photo
+   popup, so the popup covers it like the header's navs. */
 .print-btn {
     position: fixed;
     right: 0.15rem;
     bottom: 0;
-    z-index: 111;
-    /* back in front only once the popup has faded out */
-    transition: z-index 0s 0.3s;
+    z-index: 95;
     font: inherit;
     color: inherit;
     background: none;
@@ -447,11 +456,6 @@ footer div:nth-of-type(1) {
 
 .print-btn:hover {
     text-decoration: underline;
-}
-
-.popup-overlay.is-active ~ .print-btn {
-    z-index: 95;
-    transition: none;
 }
 
 /* LAST DUMP: lines up with 055 ITEMS in the header */
@@ -581,6 +585,7 @@ footer div:nth-of-type(1) {
         overflow: visible;
     }
 
+    body::after,
     body > :not(.receipt) {
         display: none !important;
     }

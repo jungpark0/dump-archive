@@ -464,7 +464,7 @@ footer div:nth-of-type(1) {
     height: 100%;
     z-index: 200;
     box-sizing: border-box;
-    padding: 0 16px 45px;
+    padding: 0 16px;
     overflow-y: auto;
     overscroll-behavior: contain;
     background-color: rgba(250, 250, 250, 0.7);
@@ -488,8 +488,10 @@ footer div:nth-of-type(1) {
     display: flex;
     justify-content: flex-end;
     gap: .6rem;
+    /* no height of its own: the paper starts at the very top, under the buttons */
+    height: 0;
+    align-items: flex-start;
     margin: 0 calc(.15rem - 16px);
-    padding-bottom: 30px;
 }
 
 .receipt-sheet {

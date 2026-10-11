@@ -280,6 +280,15 @@ body.is-dumped .content {
     touch-action: none;
 }
 
+/* fades out as the lists come in */
+.pile-layer.is-leaving {
+    opacity: 0;
+}
+
+.pile-layer.is-leaving .dump-photo {
+    pointer-events: none;
+}
+
 .dump-word.is-leaving {
     opacity: 0;
     transition: opacity 0.2s ease;

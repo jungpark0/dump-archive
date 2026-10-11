@@ -948,7 +948,7 @@ export default function Home() {
         + text(2, 57.07, "(Literally a dump.)") + rows + photos
         + text(2.85, foot, `${count} ITEMS, UNSORTED`) + text(2.85, foot + 15, `LAST DUMP ${when}`)
         + text(2.85, foot + 45.01, location.host) + text(2.85, foot + 60.01, "© 2026 JUNGPARK. ALL RIGHTS RESERVED")
-        + text(2.85, foot + 90.01, `PRINTED <tspan class="receipt-printed">${stamp()}</tspan>`)
+        + text(2.85, foot + 90.01, `<tspan class="receipt-printed">${stamp()}</tspan>`)
         + "</svg>";
       const paths = receiptPaper.querySelectorAll(".receipt-photo");
       return printOf(item.printSrc, RECEIPT_PHOTO_W).then(dotsOf).then((d) => {

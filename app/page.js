@@ -69,8 +69,20 @@ export default function Home() {
 
     // What a nav opens starts at the top of the page. Scrolled down, it would open
     // out of sight and the click would look like it did nothing.
+    // Stepped by hand: a browser's own smooth scroll is dropped when the page changes
+    // height under it, which is exactly what opening a nav does.
+    let topFrame = null;
     function toTop() {
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      cancelAnimationFrame(topFrame);
+      const from = window.scrollY;
+      if (from <= 0) return;
+      const start = performance.now();
+      const step = (now) => {
+        const t = Math.min(1, (now - start) / 300);
+        window.scrollTo(0, from * (1 - t) ** 3);
+        if (t < 1) topFrame = requestAnimationFrame(step);
+      };
+      topFrame = requestAnimationFrame(step);
     }
 
     // The intro text and the INDEX group share the same area, so only one can be open at a time.
@@ -1620,6 +1632,7 @@ export default function Home() {
       headerEl.removeEventListener("click", onHeaderClickWhileDumped, true);
       window.removeEventListener("resize", onDumpResize);
       document.removeEventListener("keydown", onDumpKeyDown);
+      cancelAnimationFrame(topFrame);
       navIndex.removeEventListener("click", onNavIndexClick);
       navTitles.removeEventListener("click", onNavTitlesClick);
       navTitle.removeEventListener("click", onNavTitleClick);

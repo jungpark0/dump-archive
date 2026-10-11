@@ -955,6 +955,7 @@ export default function Home() {
       const count = String(n).padStart(3, "0");
       const when = new Date(lastDumpAt).toLocaleString("sv-SE").slice(0, 16);
       const height = foot + 90.01 + 19.17;
+      receiptPaper.style.setProperty("--receipt-h", height.toFixed(2));
       receiptPaper.innerHTML = `<svg viewBox="0 0 384 ${height.toFixed(2)}" shape-rendering="crispEdges">`
         + text(4, 27.6, "✳", "receipt-star") + text(15.1, 27.07, "DUMP-ARCHIVE")
         + text(160.88, 27.07, "INDEX") + text(222.81, 27.07, "TITLE")

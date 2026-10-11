@@ -533,6 +533,21 @@ footer div:nth-of-type(1) {
     height: auto;
 }
 
+/* On a desktop screen the whole receipt is shown at once, as tall as the window,
+   but never under 0.7 of its own size (8px type) nor over it; past that it scrolls.
+   --receipt-h is the drawing's height, set by the script. */
+@media screen and (min-width: 768px) {
+    .receipt-sheet {
+        width: fit-content;
+        max-width: none;
+    }
+
+    .receipt svg {
+        width: auto;
+        height: clamp(calc(var(--receipt-h) * 0.7px), 100vh, calc(var(--receipt-h) * 1px));
+    }
+}
+
 .receipt text {
     font-size: 11px;
     letter-spacing: -0.025em;

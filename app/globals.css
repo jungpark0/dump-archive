@@ -354,8 +354,8 @@ body.is-dumped .content {
     cursor: pointer;
 }
 
-/* no :hover here: script.js sets the class only for a real pointer, and a
-   plain :hover would stick to the last row tapped on a phone */
+/* no :hover here: script.js sets the class for a real pointer's hover and for
+   the first tap on a touch screen, and takes it off again itself */
 .index-list a.is-hover-linked,
 .title-list li.is-hover-linked,
 .log-list li.is-hover-linked,
@@ -430,14 +430,68 @@ footer div:nth-of-type(1) {
     grid-column: 9 / span 4;
 }
 
-/* ---------- receipt (print only) ---------- */
+/* ---------- receipt ---------- */
+
+/* PRINT RECEIPT lays the receipt over the page; printing (from there or with
+   Cmd+P) puts only the paper on the page, at its true size. */
+.receipt {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 200;
+    box-sizing: border-box;
+    padding: 0 16px 45px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background-color: rgba(250, 250, 250, 0.7);
+    backdrop-filter: blur(5px);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0s 0.3s;
+}
+
+.receipt.is-open {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.3s ease;
+}
+
+.receipt-bar,
+.receipt-paper {
+    max-width: 384px;
+    margin: 0 auto;
+}
+
+.receipt-bar {
+    position: sticky;
+    top: 0;
+    display: flex;
+    justify-content: space-between;
+    padding-bottom: 30px;
+}
+
+.receipt-bar button {
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+}
+
+.receipt-bar button:hover {
+    text-decoration: underline;
+}
 
 /* One drawing, 384 units wide: a unit is a dot of a 203dpi thermal head, so it
    prints as the 48mm a 58mm roll takes. Being a single picture, a browser can
    neither re-flow it nor break it across pages. Positions are set in the script,
    read off the Illustrator original. */
-.receipt {
-    display: none;
+.receipt-paper {
+    background-color: #fff;
+    box-shadow: 0 1px 10px rgba(0, 0, 0, 0.15);
 }
 
 .receipt svg {
@@ -473,9 +527,24 @@ footer div:nth-of-type(1) {
     }
 
     .receipt {
-        display: block;
+        position: static;
+        height: auto;
+        padding: 0;
+        overflow: visible;
+        background: none;
+        backdrop-filter: none;
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .receipt-bar {
+        display: none;
+    }
+
+    .receipt-paper {
         width: 48mm;
-        margin: 0 auto;
+        max-width: none;
+        box-shadow: none;
         break-inside: avoid;
     }
 }
@@ -499,10 +568,8 @@ footer div:nth-of-type(1) {
     display: block;
 }
 
-@media (hover: hover) and (pointer: fine) {
-    .peek.is-on {
-        opacity: 1;
-    }
+.peek.is-on {
+    opacity: 1;
 }
 
 /* ---------- popup ---------- */
@@ -703,10 +770,13 @@ body:has(.popup-overlay.is-active) {
     /* footer */
 
     footer div:nth-of-type(1) {
-        grid-column: 1 / span 12;
+        grid-column: 1 / span 8;
     }
 
-    .print-btn,
+    .print-btn {
+        grid-column: 9 / span 4;
+    }
+
     .last-dump {
         display: none;
     }

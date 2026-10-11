@@ -384,6 +384,8 @@ export default function Home() {
     // Opening the popup ends the row hover it was clicked from. The list eases
     // back to black under the overlay's fade instead of snapping.
     let unhoverTimer = null;
+    let tappedId = null;
+    let untap = () => {};
 
     // Outside the popup a photo is shown the way a receipt printer would print it:
     // black dots on white. Each pixel is compared against its place in a repeating
@@ -492,6 +494,16 @@ export default function Home() {
     }
 
     document.addEventListener("mousemove", onDocMouseMove);
+
+    // A tapped row lets go when the tap lands anywhere else, or the page moves.
+    function onDocClick(e) {
+      if (!e.target.closest("#index-list, #title-list, #log-list")) untap();
+    }
+    function onScroll() {
+      untap();
+    }
+    document.addEventListener("click", onDocClick);
+    window.addEventListener("scroll", onScroll, { passive: true });
     peekImg.addEventListener("load", placePeek);
 
     function onOverlayClick(e) {
@@ -596,6 +608,32 @@ export default function Home() {
         unhoverTimer = setTimeout(() => document.body.classList.remove("is-unhovering"), IMAGE_TRANSITION_MS);
       }
 
+      // A touch screen has no hover, so the first tap on a row stands in for it
+      // (thumbnail, underline) and a second tap on the same row opens the photo.
+      function onRowClick(id, e) {
+        e.preventDefault();
+        if (!finePointer.matches && tappedId !== id) {
+          if (tappedId) setHoverLinked(tappedId, false);
+          tappedId = id;
+          mx = e.clientX;
+          my = e.clientY;
+          showPeek(id);
+          setHoverLinked(id, true);
+          return;
+        }
+        tappedId = null;
+        hidePeek();
+        easeOutHover(id);
+        openPopup(indexById.get(id));
+      }
+
+      untap = () => {
+        if (!tappedId) return;
+        setHoverLinked(tappedId, false);
+        tappedId = null;
+        hidePeek();
+      };
+
       indexLinkById.forEach((link, id) => {
         link.addEventListener("mouseenter", () => {
           if (!finePointer.matches) return;
@@ -606,12 +644,7 @@ export default function Home() {
           hidePeek();
           setHoverLinked(id, false);
         });
-        link.addEventListener("click", (e) => {
-          e.preventDefault();
-          hidePeek();
-          easeOutHover(id);
-          openPopup(indexById.get(id));
-        });
+        link.addEventListener("click", (e) => onRowClick(id, e));
       });
 
       [...titleItemById, ...logItemById].forEach(([id, li]) => {
@@ -624,11 +657,7 @@ export default function Home() {
           hidePeek();
           setHoverLinked(id, false);
         });
-        li.addEventListener("click", () => {
-          hidePeek();
-          easeOutHover(id);
-          openPopup(indexById.get(id));
-        });
+        li.addEventListener("click", (e) => onRowClick(id, e));
       });
     }
 
@@ -831,6 +860,7 @@ export default function Home() {
     // ---------- receipt ----------
 
     const receiptEl = document.getElementById("receipt");
+    const receiptPaper = document.getElementById("receipt-paper");
     const printBtn = document.getElementById("print-btn");
     const RECEIPT_PHOTO_W = 144;
     const RECEIPT_ROW_H = 15.004;
@@ -905,7 +935,7 @@ export default function Home() {
       const count = String(n).padStart(3, "0");
       const when = new Date(lastDumpAt).toLocaleString("sv-SE").slice(0, 16);
       const height = foot + 60.01 + 19.17;
-      receiptEl.innerHTML = `<svg viewBox="0 0 384 ${height.toFixed(2)}" shape-rendering="crispEdges">`
+      receiptPaper.innerHTML = `<svg viewBox="0 0 384 ${height.toFixed(2)}" shape-rendering="crispEdges">`
         + text(4, 27.6, "✳", "receipt-star") + text(15.1, 27.07, "DUMP-ARCHIVE")
         + text(160.88, 27.07, "INDEX") + text(222.81, 27.07, "TITLE")
         + text(2, 57.07, "(Literally a dump.)") + rows + photos
@@ -916,20 +946,41 @@ export default function Home() {
       // as long as the list makes it.
       pageStyle.textContent = `@page { size: 48mm ${(height * 0.125 + 0.2).toFixed(2)}mm; margin: 0; }`;
 
-      const paths = receiptEl.querySelectorAll(".receipt-photo");
+      const paths = receiptPaper.querySelectorAll(".receipt-photo");
       return printOf(item.printSrc, RECEIPT_PHOTO_W).then(dotsOf).then((d) => {
         paths.forEach((path) => path.setAttribute("d", d));
       });
     }
 
-    function onPrintClick() {
+    // PRINT RECEIPT shows the receipt first; it is printed from there.
+    const receiptPrintBtn = document.getElementById("receipt-print");
+    const receiptCloseBtn = document.getElementById("receipt-close");
+    function openReceipt() {
+      buildReceipt();
+      receiptEl.scrollTop = 0;
+      receiptEl.classList.add("is-open");
+    }
+    function closeReceipt() {
+      receiptEl.classList.remove("is-open");
+    }
+    function onReceiptPrint() {
       buildReceipt().then(() => { if (!cancelled) window.print(); });
+    }
+    function onReceiptBackdrop(e) {
+      if (e.target === receiptEl) closeReceipt();
+    }
+    function onReceiptKeyDown(e) {
+      if (e.key === "Escape") closeReceipt();
     }
     // Cmd+P prints the same receipt, with whatever was looked at since.
     function onBeforePrint() {
       if (receiptEl.dataset.for !== String(receiptId)) buildReceipt();
     }
-    printBtn.addEventListener("click", onPrintClick);
+    printBtn.addEventListener("click", openReceipt);
+    receiptPrintBtn.addEventListener("click", onReceiptPrint);
+    receiptCloseBtn.addEventListener("click", closeReceipt);
+    receiptEl.addEventListener("click", onReceiptBackdrop);
+    document.addEventListener("keydown", onReceiptKeyDown);
     window.addEventListener("beforeprint", onBeforePrint);
 
     loadPhotos();
@@ -1379,7 +1430,12 @@ export default function Home() {
       if (rollTimeout) clearTimeout(rollTimeout);
       clearTimeout(warmTimer);
       clearTimeout(unhoverTimer);
-      printBtn.removeEventListener("click", onPrintClick);
+      printBtn.removeEventListener("click", openReceipt);
+      receiptPrintBtn.removeEventListener("click", onReceiptPrint);
+      receiptCloseBtn.removeEventListener("click", closeReceipt);
+      receiptEl.removeEventListener("click", onReceiptBackdrop);
+      document.removeEventListener("keydown", onReceiptKeyDown);
+      closeReceipt();
       window.removeEventListener("beforeprint", onBeforePrint);
       pageStyle.remove();
       endDump({ animate: false });
@@ -1397,6 +1453,8 @@ export default function Home() {
       popupImageStack.removeEventListener("touchstart", onStackTouchStart);
       popupImageStack.removeEventListener("touchend", onStackTouchEnd);
       document.removeEventListener("mousemove", onDocMouseMove);
+      document.removeEventListener("click", onDocClick);
+      window.removeEventListener("scroll", onScroll);
       peekImg.removeEventListener("load", placePeek);
       popupOverlay.removeEventListener("click", onOverlayClick);
       document.removeEventListener("keydown", onKeyDown);
@@ -1464,7 +1522,13 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="receipt" id="receipt" aria-hidden="true"></div>
+      <div className="receipt" id="receipt">
+        <div className="receipt-bar">
+          <button type="button" id="receipt-print">PRINT</button>
+          <button type="button" id="receipt-close">CLOSE</button>
+        </div>
+        <div className="receipt-paper" id="receipt-paper"></div>
+      </div>
 
       <footer>
         <div className="footer">

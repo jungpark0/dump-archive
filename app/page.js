@@ -1730,9 +1730,9 @@ export default function Home() {
         <div className="footer">
           <span>© 2026 JUNGPARK. ALL RIGHTS RESERVED</span>
         </div>
-        <button type="button" className="print-btn" id="print-btn">RECEIPT</button>
         <div className="last-dump" id="last-dump"></div>
       </footer>
+      <button type="button" className="print-btn" id="print-btn">RECEIPT</button>
     </>
   );
 }

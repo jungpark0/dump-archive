@@ -181,6 +181,7 @@ body.is-titles-open .sort-btn {
     pointer-events: auto;
 }
 
+.sort-btn:hover,
 .sort-btn.is-active {
     text-decoration: underline;
 }

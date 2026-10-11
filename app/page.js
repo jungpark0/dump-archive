@@ -938,7 +938,9 @@ export default function Home() {
         `<path class="receipt-photo" transform="translate(2.85 ${(photoTop + i * (photoH + 2)).toFixed(2)})"/>`
       ).join("");
 
-      const foot = Math.max(lastRow, photoTop + 3 * photoH + 4) + 37.98;
+      // Where and when the printed photo was taken sit right under it, then a line's gap.
+      const caption = photoTop + 3 * photoH + 4 + 15;
+      const foot = Math.max(lastRow, caption) + 30;
       const count = String(n).padStart(3, "0");
       const when = new Date(lastDumpAt).toLocaleString("sv-SE").slice(0, 16);
       const height = foot + 90.01 + 19.17;
@@ -946,6 +948,7 @@ export default function Home() {
         + text(4, 27.6, "✳", "receipt-star") + text(15.1, 27.07, "DUMP-ARCHIVE")
         + text(160.88, 27.07, "INDEX") + text(222.81, 27.07, "TITLE")
         + text(2, 57.07, "(Literally a dump.)") + rows + photos
+        + text(2.85, caption, escapeHtml(`${item.when || "-"}, ${item.where || "-"}`))
         + text(2.85, foot, `${count} ITEMS, UNSORTED`) + text(2.85, foot + 15, `LAST DUMP ${when}`)
         + text(2.85, foot + 45.01, location.host) + text(2.85, foot + 60.01, "© 2026 JUNGPARK. ALL RIGHTS RESERVED")
         + text(2.85, foot + 90.01, `<tspan class="receipt-printed">${stamp()}</tspan>`)

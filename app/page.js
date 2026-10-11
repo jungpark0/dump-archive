@@ -904,6 +904,11 @@ export default function Home() {
       });
     }
 
+    // The minute the receipt is printed, in the same shape as LAST DUMP.
+    function stamp() {
+      return new Date().toLocaleString("sv-SE").slice(0, 16);
+    }
+
     // What the page prints as: the whole list in the order it was dumped, with one
     // photo printed three times down the left: the last one looked at if it is the
     // right shape, any that is otherwise. Resolves once the photo is ready to print.
@@ -921,7 +926,9 @@ export default function Home() {
       const lastRow = 57.07 + (n - 1) * RECEIPT_ROW_H;
       const rows = originalItems.map((it, i) => {
         const y = 57.07 + i * RECEIPT_ROW_H;
-        return text(160.88, y, it.id) + text(222.81, y, escapeHtml(it.title));
+        // The star marks the row the printed photo belongs to.
+        return (it === item ? text(149.78, y + 0.53, "✳", "receipt-star") : "")
+          + text(160.88, y, it.id) + text(222.81, y, escapeHtml(it.title));
       }).join("");
 
       // The third print starts just under the last row; the other two stack above it.
@@ -934,13 +941,15 @@ export default function Home() {
       const foot = Math.max(lastRow, photoTop + 3 * photoH + 4) + 37.98;
       const count = String(n).padStart(3, "0");
       const when = new Date(lastDumpAt).toLocaleString("sv-SE").slice(0, 16);
-      const height = foot + 60.01 + 19.17;
+      const height = foot + 75.01 + 19.17;
       receiptPaper.innerHTML = `<svg viewBox="0 0 384 ${height.toFixed(2)}" shape-rendering="crispEdges">`
         + text(4, 27.6, "✳", "receipt-star") + text(15.1, 27.07, "DUMP-ARCHIVE")
         + text(160.88, 27.07, "INDEX") + text(222.81, 27.07, "TITLE")
         + text(2, 57.07, "(Literally a dump.)") + rows + photos
         + text(2.85, foot, `${count} ITEMS, UNSORTED`) + text(2.85, foot + 15, `LAST DUMP ${when}`)
-        + text(2.85, foot + 45.01, location.host) + text(2.85, foot + 60.01, "© 2026 JUNGPARK. ALL RIGHTS RESERVED")
+        // one space more than LAST DUMP, so one word-spacing to make up
+        + text(2.85, foot + 30, `PRINTED   <tspan class="receipt-printed" dx="2.16">${stamp()}</tspan>`)
+        + text(2.85, foot + 60.01, location.host) + text(2.85, foot + 75.01, "© 2026 JUNGPARK. ALL RIGHTS RESERVED")
         + "</svg>";
       const paths = receiptPaper.querySelectorAll(".receipt-photo");
       return printOf(item.printSrc, RECEIPT_PHOTO_W).then(dotsOf).then((d) => {
@@ -971,6 +980,8 @@ export default function Home() {
     // Cmd+P prints the same receipt, with whatever was looked at since.
     function onBeforePrint() {
       if (receiptEl.dataset.for !== String(receiptId)) buildReceipt();
+      const printed = receiptPaper.querySelector(".receipt-printed");
+      if (printed) printed.textContent = stamp();
     }
     printBtn.addEventListener("click", openReceipt);
     receiptPrintBtn.addEventListener("click", onReceiptPrint);

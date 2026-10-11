@@ -1,8 +1,10 @@
 import "./globals.css";
 
 export const metadata = {
+  metadataBase: new URL("https://dump-archive.vercel.app"),
   title: "DUMP-ARCHIVE",
-  description: "Personal photo archive",
+  description: "Where all kinds of images just get dumped in. (Literally a dump.)",
+  twitter: { card: "summary_large_image" },
 };
 
 export default function RootLayout({ children }) {

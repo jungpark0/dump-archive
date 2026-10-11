@@ -927,7 +927,7 @@ export default function Home() {
       const rows = originalItems.map((it, i) => {
         const y = 57.07 + i * RECEIPT_ROW_H;
         // The star marks the row the printed photo belongs to.
-        return (it === item ? text(211.71, y + 0.53, "✳", "receipt-star") : "")
+        return (it === item ? text(205.39, y + 0.53, "✳", "receipt-star") : "")
           + text(160.88, y, it.id) + text(222.81, y, escapeHtml(it.title));
       }).join("");
 
@@ -938,9 +938,20 @@ export default function Home() {
         `<path class="receipt-photo" transform="translate(2.85 ${(photoTop + i * (photoH + 2)).toFixed(2)})"/>`
       ).join("");
 
-      // Where and when the printed photo was taken sit right under it, then a line's gap.
-      const caption = photoTop + 3 * photoH + 4 + 15;
-      const foot = Math.max(lastRow, caption) + 30;
+      // When and where the printed photo was taken, standing on the photos' bottom
+      // edge in the INDEX column. A line that is too long wraps inside that column.
+      const photoEnd = photoTop + 3 * photoH + 4;
+      const wide = (str) => [...str].reduce((w, ch) => w + (ch === " " ? 4.169 : 6.325), 0);
+      const lines = [];
+      `${item.when || "-"}, ${item.where || "-"}`.split(" ").forEach((word) => {
+        const last = lines[lines.length - 1];
+        if (last !== undefined && wide(`${last} ${word}`) <= 384 - 2 - 160.88) lines[lines.length - 1] = `${last} ${word}`;
+        else lines.push(word);
+      });
+      const caption = lines.map((line, i) =>
+        text(160.88, photoEnd - (lines.length - 1 - i) * 15, escapeHtml(line))
+      ).join("");
+      const foot = Math.max(lastRow, photoEnd) + 37.98;
       const count = String(n).padStart(3, "0");
       const when = new Date(lastDumpAt).toLocaleString("sv-SE").slice(0, 16);
       const height = foot + 90.01 + 19.17;
@@ -948,8 +959,7 @@ export default function Home() {
         + text(4, 27.6, "✳", "receipt-star") + text(15.1, 27.07, "DUMP-ARCHIVE")
         + text(160.88, 27.07, "INDEX") + text(222.81, 27.07, "TITLE")
         + text(2, 57.07, "(Literally a dump.)") + rows + photos
-        + text(2.85, caption, escapeHtml(`${item.when || "-"}, ${item.where || "-"}`))
-        + text(2.85, foot, `${count} ITEMS, UNSORTED`) + text(2.85, foot + 15, `LAST DUMP ${when}`)
+        + caption + text(2.85, foot, `${count} ITEMS, UNSORTED`) + text(2.85, foot + 15, `LAST DUMP ${when}`)
         + text(2.85, foot + 45.01, location.host) + text(2.85, foot + 60.01, "© 2026 JUNGPARK. ALL RIGHTS RESERVED")
         + text(2.85, foot + 90.01, `<tspan class="receipt-printed">${stamp()}</tspan>`)
         + "</svg>";

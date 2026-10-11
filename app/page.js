@@ -166,6 +166,7 @@ export default function Home() {
       const isNavigating = popupOverlay.classList.contains("is-active");
       currentIndex = index;
       const item = items[index];
+      receiptId = item.id;
 
       // A missing date or place is genuine missing data, and the log list
       // already prints those as "-". The popup says the same instead of
@@ -456,6 +457,7 @@ export default function Home() {
     function showPeek(id) {
       const item = items[indexById.get(id)];
       peekId = id;
+      receiptId = id;
       printOf(item.printSrc, Math.round(PEEK_W * PRINT_SCALE)).then((url) => {
         if (peekId === id) peekImg.src = url;
       });
@@ -758,6 +760,7 @@ export default function Home() {
           fullSrc: `${r.url}?w=${fullWidth}&${IMG_PARAMS}`,
           zoomSrc: dimsMatch ? `${r.url}?w=${dimsMatch[1]}&${IMG_PARAMS}` : `${r.url}?${IMG_PARAMS}`,
           thumbSrc: `${r.url}?w=500&${IMG_PARAMS}`,
+          aspect: dimsMatch ? dimsMatch[2] / dimsMatch[1] : 4 / 3,
           // The hover thumbnail is printed from this.
           printSrc: `${r.url}?w=${PEEK_W * 2}&auto=format&q=70`,
           // For the dumped pile, where a photo is drawn up to 64px wide.
@@ -774,6 +777,7 @@ export default function Home() {
       showLastDump(result);
       updateSortButtonsUI();
       prefetchThumbs();
+      buildReceipt();
     }
 
     // Odometer-style roll: each digit spins through a stacked 0-9 strip (more
@@ -820,8 +824,113 @@ export default function Home() {
     function showLastDump(docs) {
       const latest = docs.reduce((max, d) => (d._createdAt > max ? d._createdAt : max), "");
       if (!latest) return;
+      lastDumpAt = latest;
       document.getElementById("last-dump").textContent = `LAST DUMP ${new Date(latest).toLocaleDateString("sv-SE")}`;
     }
+
+    // ---------- receipt ----------
+
+    const receiptEl = document.getElementById("receipt");
+    const printBtn = document.getElementById("print-btn");
+    const RECEIPT_PHOTO_W = 144;
+    const RECEIPT_ROW_H = 15.004;
+    const pageStyle = document.head.appendChild(document.createElement("style"));
+    let lastDumpAt = "";
+    let receiptId = null;
+
+    // A printed bitmap gets resampled on the way out (by the browser, the PDF viewer
+    // or the printer driver) and the dots turn to grey mush. So the receipt's photo
+    // is drawn instead: every run of black dots in a print becomes a rectangle.
+    function dotsOf(url) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          const w = img.naturalWidth;
+          const h = img.naturalHeight;
+          const canvas = document.createElement("canvas");
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0);
+          let px;
+          try {
+            px = ctx.getImageData(0, 0, w, h).data;
+          } catch {
+            return resolve("");
+          }
+          let d = "";
+          for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+              if (px[(y * w + x) * 4] > 127) continue;
+              const x0 = x;
+              while (x + 1 < w && px[(y * w + x + 1) * 4] <= 127) x++;
+              d += `M${x0} ${y}h${x - x0 + 1}v1h${x0 - x - 1}z`;
+            }
+          }
+          resolve(d);
+        };
+        img.onerror = () => resolve("");
+        img.src = url;
+      });
+    }
+
+    // What the page prints as: the whole list in the order it was dumped, with one
+    // photo printed three times down the left: the last one looked at if it is the
+    // right shape, any that is otherwise. Resolves once the photo is ready to print.
+    function buildReceipt() {
+      if (!originalItems.length) return Promise.resolve();
+      // Only photos in the 3:4 upright the receipt was drawn around.
+      const upright = originalItems.filter((it) => Math.abs(it.aspect - 4 / 3) < 0.02);
+      const pool = upright.length ? upright : originalItems;
+      const item = pool.find((it) => it.id === receiptId) || pool[Math.floor(Math.random() * pool.length)];
+      receiptEl.dataset.for = String(receiptId);
+
+      // Everything is placed by its baseline, in the drawing's own units.
+      const n = originalItems.length;
+      const text = (x, y, str, cls) => `<text x="${x}" y="${y.toFixed(2)}"${cls ? ` class="${cls}"` : ""}>${str}</text>`;
+      const lastRow = 57.07 + (n - 1) * RECEIPT_ROW_H;
+      const rows = originalItems.map((it, i) => {
+        const y = 57.07 + i * RECEIPT_ROW_H;
+        return text(160.88, y, it.id) + text(222.81, y, escapeHtml(it.title));
+      }).join("");
+
+      // The third print starts just under the last row; the other two stack above it.
+      const photoH = Math.round(RECEIPT_PHOTO_W * item.aspect);
+      const photoTop = Math.max(42.07, lastRow + 9.98 - 2 * (photoH + 2));
+      const photos = [0, 1, 2].map((i) =>
+        `<path class="receipt-photo" transform="translate(2.85 ${(photoTop + i * (photoH + 2)).toFixed(2)})"/>`
+      ).join("");
+
+      const foot = Math.max(lastRow, photoTop + 3 * photoH + 4) + 37.98;
+      const count = String(n).padStart(3, "0");
+      const when = new Date(lastDumpAt).toLocaleString("sv-SE").slice(0, 16);
+      const height = foot + 60.01 + 19.17;
+      receiptEl.innerHTML = `<svg viewBox="0 0 384 ${height.toFixed(2)}" shape-rendering="crispEdges">`
+        + text(4, 27.6, "✳", "receipt-star") + text(15.1, 27.07, "DUMP-ARCHIVE")
+        + text(160.88, 27.07, "INDEX") + text(222.81, 27.07, "TITLE")
+        + text(2, 57.07, "(Literally a dump.)") + rows + photos
+        + text(2.85, foot, `${count} ITEMS, UNSORTED`) + text(2.85, foot + 15, `LAST DUMP ${when}`)
+        + text(2.85, foot + 45.01, location.host) + text(2.85, foot + 60.01, "© 2026 JUNGPARK. ALL RIGHTS RESERVED")
+        + "</svg>";
+      // Where the browser allows it, the page is cut to the receipt: 48mm across and
+      // as long as the list makes it.
+      pageStyle.textContent = `@page { size: 48mm ${(height * 0.125 + 0.2).toFixed(2)}mm; margin: 0; }`;
+
+      const paths = receiptEl.querySelectorAll(".receipt-photo");
+      return printOf(item.printSrc, RECEIPT_PHOTO_W).then(dotsOf).then((d) => {
+        paths.forEach((path) => path.setAttribute("d", d));
+      });
+    }
+
+    function onPrintClick() {
+      buildReceipt().then(() => { if (!cancelled) window.print(); });
+    }
+    // Cmd+P prints the same receipt, with whatever was looked at since.
+    function onBeforePrint() {
+      if (receiptEl.dataset.for !== String(receiptId)) buildReceipt();
+    }
+    printBtn.addEventListener("click", onPrintClick);
+    window.addEventListener("beforeprint", onBeforePrint);
 
     loadPhotos();
 
@@ -1270,6 +1379,9 @@ export default function Home() {
       if (rollTimeout) clearTimeout(rollTimeout);
       clearTimeout(warmTimer);
       clearTimeout(unhoverTimer);
+      printBtn.removeEventListener("click", onPrintClick);
+      window.removeEventListener("beforeprint", onBeforePrint);
+      pageStyle.remove();
       endDump({ animate: false });
       dumpTrigger.removeEventListener("click", startDump);
       headerEl.removeEventListener("click", onHeaderClickWhileDumped, true);
@@ -1352,10 +1464,13 @@ export default function Home() {
         </div>
       </div>
 
+      <div className="receipt" id="receipt" aria-hidden="true"></div>
+
       <footer>
         <div className="footer">
           <span>© 2026 JUNGPARK. ALL RIGHTS RESERVED</span>
         </div>
+        <button type="button" className="print-btn" id="print-btn">PRINT</button>
         <div className="last-dump" id="last-dump"></div>
       </footer>
     </>

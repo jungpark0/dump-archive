@@ -405,9 +405,76 @@ footer div:nth-of-type(1) {
     grid-column: 1 / span 3;
 }
 
+/* PRINT: lines up with INDEX in the header */
+.print-btn {
+    grid-column: 4 / span 2;
+    grid-row: 1;
+    justify-self: start;
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+}
+
+.print-btn:hover {
+    text-decoration: underline;
+}
+
 /* LAST DUMP: lines up with 055 ITEMS in the header */
 .last-dump {
     grid-column: 9 / span 4;
+}
+
+/* ---------- receipt (print only) ---------- */
+
+/* One drawing, 384 units wide: a unit is a dot of a 203dpi thermal head, so it
+   prints as the 48mm a 58mm roll takes. Being a single picture, a browser can
+   neither re-flow it nor break it across pages. Positions are set in the script,
+   read off the Illustrator original. */
+.receipt {
+    display: none;
+}
+
+.receipt svg {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.receipt text {
+    font-size: 11px;
+    letter-spacing: -0.025em;
+    word-spacing: -0.196em;
+    white-space: pre;
+}
+
+.receipt .receipt-star {
+    font: bold 16.2355px Menlo, monospace;
+    letter-spacing: 0;
+    stroke: #000;
+    stroke-width: 0.29px;
+}
+
+@media print {
+    html,
+    body {
+        height: auto;
+        min-height: 0;
+        overflow: visible;
+    }
+
+    body > :not(.receipt) {
+        display: none !important;
+    }
+
+    .receipt {
+        display: block;
+        width: 48mm;
+        margin: 0 auto;
+        break-inside: avoid;
+    }
 }
 
 /* ---------- peek (hover thumbnail) ---------- */
@@ -636,6 +703,7 @@ body:has(.popup-overlay.is-active) {
         grid-column: 1 / span 12;
     }
 
+    .print-btn,
     .last-dump {
         display: none;
     }

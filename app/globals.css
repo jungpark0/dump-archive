@@ -798,6 +798,8 @@ body:has(.popup-overlay.is-active) {
 .popup-meta-note {
     grid-column: 7 / span 6;
     grid-row: 1;
+    /* a note keeps the line breaks it was typed with */
+    white-space: pre-line;
 }
 
 .popup-meta > div:empty:not(.popup-meta-blank),

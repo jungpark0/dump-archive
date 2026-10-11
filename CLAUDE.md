@@ -37,6 +37,13 @@ n=$(grep -n "reset.css (loaded after style.css" app/globals.css | cut -d: -f1) &
   functions are used where `script.js` uses inline ones.
 - The physics array is `bodies` in `page.js` and `items` in `script.js`;
   `items` is already taken there.
+- Matter is a global in the sandbox (`loadMatter()`); here it is
+  `(await import("matter-js")).default`, carried around as `state.Matter`.
+- `script.js` is top-level with 4-space steps and single quotes; `page.js` sits
+  inside one effect at 4 spaces with 2-space steps and double quotes.
+- The sandbox's top-level names (`buildReceipt`, `receiptId`, `originalItems`,
+  `pile`) are reachable from a test page; nothing is here. Scripted checks
+  that need to call into the code run against the sandbox.
 
 ## Dev servers
 
@@ -47,6 +54,56 @@ Named in `../.claude/launch.json`, never started by hand:
 | `static` | the vanilla sandbox | 8815 |
 | `archive-web` | this app | 3100 |
 | `sanity` | the Studio in `../archive-site` | 3333 |
+
+## The receipt
+
+RECEIPT (bottom right) lays the list over the page as a till receipt, and
+PRINT, or Cmd+P at any time, prints exactly that and nothing else.
+
+- It is one inline SVG, `viewBox="0 0 384 H"`: a unit is one dot of a 203dpi
+  thermal head, so 384 units print as the 48mm a 58mm roll takes. Every
+  position in `buildReceipt()` is a baseline read off the Illustrator original
+  (`../PDF/무제-1.pdf`). A single SVG is what keeps it identical in every
+  browser and on one page; an HTML layout scaled with `zoom` or `transform`
+  drifted and was split across pages.
+- The photo is drawn as rectangles, one per run of black dots (`dotsOf()`), not
+  as a bitmap. Browsers and PDF viewers resample bitmaps into grey.
+- Only photos in the 3:4 upright are printed: the last one looked at if it has
+  that shape, any one that has otherwise. A star marks its row, and its date
+  and place stand beside the last print. The remaining photos never appear.
+- The last line is the minute it was printed, rewritten on `beforeprint`.
+- On screen it is fitted to the window's height from 768px wide, never under
+  0.7 of its size nor over it (`--receipt-h` is set by the script); below that
+  width it takes the width and scrolls under a white strip holding PRINT and
+  CLOSE. On paper: `@page { margin: 0 }`, 48mm wide, crop marks made of borders
+  because backgrounds are not printed.
+
+Adding a photo makes the receipt 15 units longer. Nothing else needs changing.
+
+## The first screen
+
+On the first load only, fourteen photos pop in at the bottom of the intro
+(`layPile()`), tossed the way the dump's words turn into photos. They can be
+dragged, fade out as soon as the intro closes or the dump starts, and do not
+come back (`clearPile()` leaves a marker in `pile`).
+
+## Layers
+
+| z-index | what |
+| --- | --- |
+| 200 | receipt overlay |
+| 110 | footer text (© and LAST DUMP), `pointer-events: none` |
+| 100 | photo popup |
+| 95 | RECEIPT button |
+| 94 | the footer's white strip (`body::after`) |
+| 90 | header |
+| 80 | hover thumbnail |
+| 50–60 | dumped words and photos, the first-screen pile |
+
+The footer is split in three on purpose. Its text stays sharp in front of the
+popup; the strip and RECEIPT sit behind the popup so that its blur fades over
+them as it does over the header. RECEIPT is a sibling of the footer, not a
+child, for the same reason: a child could not go behind the popup alone.
 
 ## Content lives in Sanity
 
@@ -89,11 +146,19 @@ login. There is no token in this repo and none is needed.
 - **Titles stay at or under ~21 characters** so the TITLE column never wraps.
 - Opened rows are not marked. A visit trail was tried and removed: it only
   dimmed the list.
+- A note keeps the line breaks and spacing it was typed with
+  (`white-space: pre-wrap`). A long one makes the popup's top row taller, and
+  ZOOM is withheld when that leaves less than 10% to gain, so keep notes short.
+- Everything on the site is in English. Fragment Mono has no Hangul.
+- On a phone one tap opens a photo. A first tap that only previewed the row was
+  tried and taken out. The hover thumbnail is for a real pointer only.
+- Opening the intro or INDEX scrolls to the top, stepped by hand (`toTop()`): a
+  browser's own smooth scroll is dropped when the page changes height under it.
 
 ## The one rule about new features
 
 The intro says the archive takes everything in and groups nothing. It already
-carries sorting, zoom and a gravity drop — about as much structure as
+carries sorting, zoom, a gravity drop and a receipt — about as much structure as
 that claim survives. Grouping, tags, filters or series navigation would make
 the first line a lie. Weigh a new feature against that sentence before building
 it.

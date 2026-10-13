@@ -902,8 +902,10 @@ export default function Home() {
     }
 
     // What the page prints as: the whole list in the order it was dumped, with one
-    // photo printed three times down the left: the last one looked at if it is the
-    // right shape, any that is otherwise. Resolves once the photo is ready to print.
+    // photo printed three times down the left, starting beside its own row: the last
+    // one looked at if it is the right shape, any that is otherwise. So no two
+    // photos give the same receipt, and a late one runs on past the end of the list.
+    // Resolves once the photo is ready to print.
     function buildReceipt() {
       if (!originalItems.length) return Promise.resolve();
       // Only photos in the 3:4 upright the receipt was drawn around.
@@ -919,42 +921,64 @@ export default function Home() {
       const rows = originalItems.map((it, i) => {
         const y = 57.07 + i * RECEIPT_ROW_H;
         // The star marks the row the printed photo belongs to.
-        return (it === item ? text(205.39, y + 0.53, "✳", "receipt-star") : "")
+        return (it === item ? text(209.21, y + 0.53, "✳", "receipt-star") : "")
           + text(160.88, y, it.id) + text(222.81, y, escapeHtml(it.title));
       }).join("");
 
-      // The third print starts just under the last row; the other two stack above it.
+      // The first print's top edge is level with the top of its row's letters, the
+      // other two stack under it. Never higher than just under "(Literally a dump.)".
       const photoH = Math.round(RECEIPT_PHOTO_W * item.aspect);
-      const photoTop = Math.max(42.07, lastRow + 9.98 - 2 * (photoH + 2));
+      const photoTop = Math.max(67.05, 57.07 + originalItems.indexOf(item) * RECEIPT_ROW_H - 7.7);
       const photos = [0, 1, 2].map((i) =>
         `<path class="receipt-photo" transform="translate(2.85 ${(photoTop + i * (photoH + 2)).toFixed(2)})"/>`
       ).join("");
 
-      // When and where the printed photo was taken, its descenders on the photos' bottom
-      // edge in the INDEX column. A line that is too long wraps inside that column.
+      // Under the photos, in their column and wrapped to their width: when and where
+      // the printed one was taken.
       const photoEnd = photoTop + 3 * photoH + 4;
-      const wide = (str) => [...str].reduce((w, ch) => w + (ch === " " ? 4.169 : 6.325), 0);
-      const lines = [];
-      `${item.when || "-"}, ${item.where || "-"}`.split(" ").forEach((word) => {
-        const last = lines[lines.length - 1];
-        if (last !== undefined && wide(`${last} ${word}`) <= 384 - 2 - 160.88) lines[lines.length - 1] = `${last} ${word}`;
-        else lines.push(word);
-      });
-      const caption = lines.map((line, i) =>
-        text(160.88, photoEnd - 3 - (lines.length - 1 - i) * 15, escapeHtml(line))
-      ).join("");
-      const foot = Math.max(lastRow, photoEnd - 3) + 30;
+      // As the type is set: a letter is 6.516 wide and a space 4.357.
+      const wide = (str) => [...str].reduce((w, ch) => w + (ch === " " ? 4.357 : 6.516), 0);
+      const wrap = (str, room) => {
+        const lines = [];
+        str.split("\n").forEach((para) => {
+          let line;
+          para.split(" ").forEach((word) => {
+            if (line !== undefined && wide(`${line} ${word}`) <= room) line = `${line} ${word}`;
+            else {
+              if (line !== undefined) lines.push(line);
+              line = word;
+            }
+          });
+          lines.push(line || "");
+        });
+        return lines;
+      };
+      const stack = (lines, x, y) => lines.map((line, i) => text(x, y + i * 15, escapeHtml(line))).join("");
+      const where = wrap(`${item.when || "-"}, ${item.where || "-"}`, RECEIPT_PHOTO_W);
+      const caption = stack(where, 2.85, photoEnd + 12);
+
+      // Under the list, in its column: the count and the last dump, as a total follows
+      // the items, then what there is to say about the printed photo, as the line a
+      // till adds at the end. The photos run down the left on their own,
+      // however far. Whichever column ends lower, the address and the © close the
+      // receipt at the bottom left, the minute it was printed at the bottom right.
+      const foot = lastRow + 30;
+      const note = wrap(item.note || NO_NOTE, 384 - 2.85 - 160.88);
+      const noteEnd = foot + 45 + (note.length - 1) * 15;
+      const noteSvg = stack(note, 160.88, foot + 45);
       const count = String(n).padStart(3, "0");
       const when = new Date(lastDumpAt).toLocaleString("sv-SE").slice(0, 16);
-      const height = foot + 90.01 + 19.17;
+      const end = Math.max(noteEnd, photoEnd + 12 + (where.length - 1) * 15) + 30.01;
+      const height = end + 15 + 19.17;
       receiptPaper.style.setProperty("--receipt-h", height.toFixed(2));
       receiptPaper.innerHTML = `<svg viewBox="0 0 384 ${height.toFixed(2)}" shape-rendering="crispEdges">`
-        + text(4, 27.6, "✳", "receipt-star") + text(15.1, 27.07, "DUMP-ARCHIVE")
+        + text(2, 27.6, "✳", "receipt-star") + text(15.6, 27.07, "DUMP-ARCHIVE")
         + text(160.88, 27.07, "INDEX") + text(222.81, 27.07, "TITLE")
         + text(2, 57.07, "(Literally a dump.)") + rows + photos
-        + caption + text(2.85, foot, `${count} ITEMS, UNSORTED`) + text(2.85, foot + 15, `LAST DUMP ${when}`)
-        + text(2.85, foot + 45.01, location.host) + text(2.85, foot + 60.01, "© 2026 JUNGPARK. ALL RIGHTS RESERVED")
-        + text(2.85, foot + 90.01, `<tspan class="receipt-printed">${stamp()}</tspan>`)
+        + caption + text(160.88, foot, `${count} ITEMS, UNSORTED`) + text(160.88, foot + 15, `LAST DUMP ${when}`)
+        + noteSvg
+        + text(2.85, end, location.host) + text(2.85, end + 15, "© 2026 JUNGPARK. ALL RIGHTS RESERVED")
+        + `<text x="381.15" y="${(end + 15).toFixed(2)}" text-anchor="end" class="receipt-printed">${stamp()}</text>`
         + "</svg>";
       const paths = receiptPaper.querySelectorAll(".receipt-photo");
       return printOf(item.printSrc, RECEIPT_PHOTO_W).then(dotsOf).then((d) => {

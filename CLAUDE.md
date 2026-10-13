@@ -61,24 +61,40 @@ RECEIPT (bottom right) lays the list over the page as a till receipt, and
 PRINT, or Cmd+P at any time, prints exactly that and nothing else.
 
 - It is one inline SVG, `viewBox="0 0 384 H"`: a unit is one dot of a 203dpi
-  thermal head, so 384 units print as the 48mm a 58mm roll takes. Every
-  position in `buildReceipt()` is a baseline read off the Illustrator original
-  (`../PDF/무제-1.pdf`). A single SVG is what keeps it identical in every
-  browser and on one page; an HTML layout scaled with `zoom` or `transform`
-  drifted and was split across pages.
+  thermal head, so 384 units print as the 48mm a 58mm roll takes. The columns
+  and the row pitch in `buildReceipt()` are baselines read off the Illustrator
+  original (`../PDF/무제-1.pdf`); what goes where down the page has since moved
+  on from it (below). A single SVG is what keeps it identical in every browser
+  and on one page; an HTML layout scaled with `zoom` or `transform` drifted and
+  was split across pages.
 - The photo is drawn as rectangles, one per run of black dots (`dotsOf()`), not
   as a bitmap. Browsers and PDF viewers resample bitmaps into grey.
 - Only photos in the 3:4 upright are printed: the last one looked at if it has
-  that shape, any one that has otherwise. A star marks its row, and its date
-  and place stand beside the last print. The remaining photos never appear.
-- The last line is the minute it was printed, rewritten on `beforeprint`.
+  that shape, any one that has otherwise. The remaining photos never appear.
+- No two photos give the same receipt. The three prints start level with the
+  photo's own row, which a star marks, and run down the left from there: at the
+  top for 001, past the end of the list for 058, which makes that receipt half
+  as long again. Its date and place go under the prints, wrapped to their
+  width.
+- Under the list, in its column: the count and LAST DUMP, then the photo's
+  note (`Just the photo.` when there is none), as a till puts the total under
+  the items and its one line under that.
+- Whichever column ends lower, the address and the © close it at the bottom
+  left and the minute it was printed at the bottom right, rewritten on
+  `beforeprint`.
+- Lines are wrapped by counting, not measuring: a letter is 6.516 units and a
+  space 4.357 as this type is set. Change the size or spacing in `.receipt
+  text` and those two numbers have to be measured again, or lines run off the
+  paper.
+- The star stands the same distance from DUMP-ARCHIVE at the top as from the
+  title in its row.
 - On screen it is fitted to the window's height from 768px wide, never under
   0.7 of its size nor over it (`--receipt-h` is set by the script); below that
   width it takes the width and scrolls under a white strip holding PRINT and
   CLOSE. On paper: `@page { margin: 0 }`, 48mm wide, crop marks made of borders
   because backgrounds are not printed.
 
-Adding a photo makes the receipt 15 units longer. Nothing else needs changing.
+Adding a photo makes every receipt 15 units longer. Nothing else needs changing.
 
 ## The first screen
 

@@ -855,7 +855,9 @@ export default function Home() {
     const receiptEl = document.getElementById("receipt");
     const receiptPaper = document.getElementById("receipt-paper");
     const printBtn = document.getElementById("print-btn");
-    const RECEIPT_PHOTO_W = 144;
+    // Wide enough to leave 10 units between it and the INDEX column (at 160.88);
+    // it starts 2.85 in from the paper's edge. It was 144 in the drawing.
+    const RECEIPT_PHOTO_W = 148;
     const RECEIPT_ROW_H = 15.004;
     let lastDumpAt = "";
     let receiptId = null;

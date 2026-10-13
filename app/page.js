@@ -861,6 +861,8 @@ export default function Home() {
     const RECEIPT_ROW_H = 15.004;
     let lastDumpAt = "";
     let receiptId = null;
+    // Settles when the receipt on the page has its photo drawn.
+    let receiptReady = Promise.resolve();
 
     // A printed bitmap gets resampled on the way out (by the browser, the PDF viewer
     // or the printer driver) and the dots turn to grey mush. So the receipt's photo
@@ -983,9 +985,10 @@ export default function Home() {
         + `<text x="381.15" y="${(end + 15).toFixed(2)}" text-anchor="end" class="receipt-printed">${stamp()}</text>`
         + "</svg>";
       const paths = receiptPaper.querySelectorAll(".receipt-photo");
-      return printOf(item.printSrc, RECEIPT_PHOTO_W).then(dotsOf).then((d) => {
+      receiptReady = printOf(item.printSrc, RECEIPT_PHOTO_W).then(dotsOf).then((d) => {
         paths.forEach((path) => path.setAttribute("d", d));
       });
+      return receiptReady;
     }
 
     // RECEIPT shows the receipt first; it is printed from there.
@@ -999,8 +1002,10 @@ export default function Home() {
     function closeReceipt() {
       receiptEl.classList.remove("is-open");
     }
+    // PRINT prints the receipt that is showing. Building it again here would draw
+    // a new photo whenever the one last looked at is not of the shape that prints.
     function onReceiptPrint() {
-      buildReceipt().then(() => { if (!cancelled) window.print(); });
+      receiptReady.then(() => { if (!cancelled) window.print(); });
     }
     function onReceiptBackdrop(e) {
       if (e.target === receiptEl) closeReceipt();

@@ -524,6 +524,18 @@ export default function Home() {
     popupCloseBtn.addEventListener("click", closePopup);
     popupOverlay.addEventListener("click", onOverlayClick);
 
+    // The popup has nothing in it to scroll, so a wheel or a finger moved over it
+    // went straight through to the list behind. Two fingers are left alone: that
+    // is the browser's own zoom.
+    function onOverlayWheel(e) {
+      if (!e.ctrlKey) e.preventDefault();
+    }
+    function onOverlayTouchMove(e) {
+      if (e.touches.length === 1) e.preventDefault();
+    }
+    popupOverlay.addEventListener("wheel", onOverlayWheel, { passive: false });
+    popupOverlay.addEventListener("touchmove", onOverlayTouchMove, { passive: false });
+
     function onKeyDown(e) {
       if (!popupOverlay.classList.contains("is-active")) return;
 
@@ -1023,6 +1035,20 @@ export default function Home() {
     receiptPrintBtn.addEventListener("click", onReceiptPrint);
     receiptCloseBtn.addEventListener("click", closeReceipt);
     receiptEl.addEventListener("click", onReceiptBackdrop);
+    // The receipt scrolls when it is longer than the window, and only then does
+    // overscroll-behavior keep the page behind it still. Where it fits, or has
+    // reached its top or its end, the wheel is stopped here instead.
+    function onReceiptWheel(e) {
+      if (e.ctrlKey) return;
+      const room = receiptEl.scrollHeight - receiptEl.clientHeight;
+      const at = receiptEl.scrollTop;
+      if (room <= 0 || (e.deltaY < 0 && at <= 0) || (e.deltaY > 0 && at >= room - 1)) e.preventDefault();
+    }
+    function onReceiptTouchMove(e) {
+      if (e.touches.length === 1 && receiptEl.scrollHeight <= receiptEl.clientHeight) e.preventDefault();
+    }
+    receiptEl.addEventListener("wheel", onReceiptWheel, { passive: false });
+    receiptEl.addEventListener("touchmove", onReceiptTouchMove, { passive: false });
     document.addEventListener("keydown", onReceiptKeyDown);
     window.addEventListener("beforeprint", onBeforePrint);
 
@@ -1649,6 +1675,8 @@ export default function Home() {
       receiptPrintBtn.removeEventListener("click", onReceiptPrint);
       receiptCloseBtn.removeEventListener("click", closeReceipt);
       receiptEl.removeEventListener("click", onReceiptBackdrop);
+      receiptEl.removeEventListener("wheel", onReceiptWheel);
+      receiptEl.removeEventListener("touchmove", onReceiptTouchMove);
       document.removeEventListener("keydown", onReceiptKeyDown);
       closeReceipt();
       window.removeEventListener("beforeprint", onBeforePrint);
@@ -1677,6 +1705,8 @@ export default function Home() {
       peekImg.removeEventListener("load", placePeek);
       popupCloseBtn.removeEventListener("click", closePopup);
       popupOverlay.removeEventListener("click", onOverlayClick);
+      popupOverlay.removeEventListener("wheel", onOverlayWheel);
+      popupOverlay.removeEventListener("touchmove", onOverlayTouchMove);
       document.removeEventListener("keydown", onKeyDown);
       sortDateBtn.removeEventListener("click", onSortDateClick);
       sortAlphaBtn.removeEventListener("click", onSortAlphaClick);

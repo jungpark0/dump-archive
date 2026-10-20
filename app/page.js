@@ -707,12 +707,40 @@ export default function Home() {
       return sortDir === "asc" ? cmp : -cmp;
     }
 
+    // A button's new label fades in where the old one faded out, rather than
+    // blinking over it. A click during the fade only changes what it lands on.
+    const RELABEL_MS = 140;
+    const relabeling = new WeakMap();
+
+    function relabel(el, text, onSwap) {
+      if (relabeling.has(el)) {
+        relabeling.set(el, { text, onSwap });
+        return;
+      }
+      if (el.textContent === text) {
+        if (onSwap) onSwap();
+        return;
+      }
+      relabeling.set(el, { text, onSwap });
+      const out = el.animate({ opacity: [1, 0] }, { duration: RELABEL_MS, easing: "ease-in", fill: "forwards" });
+      // A timer, not out.finished: the label must change even where nothing is painting.
+      setTimeout(() => {
+        const next = relabeling.get(el);
+        relabeling.delete(el);
+        el.textContent = next.text;
+        if (next.onSwap) next.onSwap();
+        el.animate({ opacity: [0, 1] }, { duration: RELABEL_MS, easing: "ease-out" });
+        out.cancel();
+      }, RELABEL_MS);
+    }
+
     function updateSortButtonsUI() {
       const arrow = sortDir === "asc" ? " ↑" : " ↓";
-      sortDateBtn.textContent = "DATE" + (sortField === "date" ? arrow : "");
-      sortAlphaBtn.textContent = "A–Z" + (sortField === "alpha" ? arrow : "");
-      sortDateBtn.classList.toggle("is-active", sortField === "date");
-      sortAlphaBtn.classList.toggle("is-active", sortField === "alpha");
+      // The underline goes with the label, not ahead of it.
+      relabel(sortDateBtn, "DATE" + (sortField === "date" ? arrow : ""),
+        () => sortDateBtn.classList.toggle("is-active", sortField === "date"));
+      relabel(sortAlphaBtn, "A–Z" + (sortField === "alpha" ? arrow : ""),
+        () => sortAlphaBtn.classList.toggle("is-active", sortField === "alpha"));
     }
 
     function applySort() {
@@ -1226,7 +1254,7 @@ export default function Home() {
         state.mode = "photos";
       }
       state.busyUntil = performance.now() + POP_SPREAD_MS + POP_MS;
-      state.swap.textContent = SWAP_LABEL[state.mode];
+      relabel(state.swap, SWAP_LABEL[state.mode]);
     }
 
     async function startDump() {

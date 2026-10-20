@@ -709,38 +709,40 @@ export default function Home() {
 
     // A button's new label fades in where the old one faded out, rather than
     // blinking over it. A click during the fade only changes what it lands on.
+    // `quiet` swaps it outright, for a label that isn't showing anyway.
     const RELABEL_MS = 140;
     const relabeling = new WeakMap();
 
-    function relabel(el, text, onSwap) {
+    function relabel(el, text, quiet) {
       if (relabeling.has(el)) {
-        relabeling.set(el, { text, onSwap });
+        relabeling.set(el, text);
         return;
       }
-      if (el.textContent === text) {
-        if (onSwap) onSwap();
+      if (el.textContent === text) return;
+      if (quiet) {
+        el.textContent = text;
         return;
       }
-      relabeling.set(el, { text, onSwap });
+      relabeling.set(el, text);
       const out = el.animate({ opacity: [1, 0] }, { duration: RELABEL_MS, easing: "ease-in", fill: "forwards" });
       // A timer, not out.finished: the label must change even where nothing is painting.
       setTimeout(() => {
-        const next = relabeling.get(el);
+        el.textContent = relabeling.get(el);
         relabeling.delete(el);
-        el.textContent = next.text;
-        if (next.onSwap) next.onSwap();
         el.animate({ opacity: [0, 1] }, { duration: RELABEL_MS, easing: "ease-out" });
         out.cancel();
       }, RELABEL_MS);
     }
 
+    // DATE and A–Z stay put; only the arrow comes and goes. It unfolds beside the
+    // word, and when it is already out, only the arrow itself turns over.
     function updateSortButtonsUI() {
       const arrow = sortDir === "asc" ? " ↑" : " ↓";
-      // The underline goes with the label, not ahead of it.
-      relabel(sortDateBtn, "DATE" + (sortField === "date" ? arrow : ""),
-        () => sortDateBtn.classList.toggle("is-active", sortField === "date"));
-      relabel(sortAlphaBtn, "A–Z" + (sortField === "alpha" ? arrow : ""),
-        () => sortAlphaBtn.classList.toggle("is-active", sortField === "alpha"));
+      for (const [btn, field] of [[sortDateBtn, "date"], [sortAlphaBtn, "alpha"]]) {
+        const on = sortField === field;
+        if (on) relabel(btn.querySelector(".sort-arrow"), arrow, !btn.classList.contains("is-active"));
+        btn.classList.toggle("is-active", on);
+      }
     }
 
     function applySort() {
@@ -1752,8 +1754,8 @@ export default function Home() {
         <nav id="nav-log" className="nav-log">000 ITEMS, UNSORTED</nav>
 
         <div className="sort-controls" id="sort-controls">
-          <button type="button" className="sort-btn" id="sort-date">DATE</button>
-          <button type="button" className="sort-btn" id="sort-alpha">A&ndash;Z</button>
+          <button type="button" className="sort-btn" id="sort-date">DATE<span className="sort-arrow"></span></button>
+          <button type="button" className="sort-btn" id="sort-alpha">A&ndash;Z<span className="sort-arrow"></span></button>
         </div>
       </header>
 

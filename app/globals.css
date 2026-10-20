@@ -186,6 +186,25 @@ body.is-titles-open .sort-btn {
     text-decoration: underline;
 }
 
+/* ↑ / ↓: folded away beside the word until its button sorts, then it opens out
+   and DATE makes room for it rather than jumping. An underline does not reach
+   into an inline-block, so it draws its own */
+.sort-arrow {
+    display: inline-block;
+    vertical-align: top;
+    white-space: pre;
+    overflow: hidden;
+    max-width: 0;
+    opacity: 0;
+    transition: max-width 0.25s ease, opacity 0.25s ease;
+}
+
+.sort-btn.is-active .sort-arrow {
+    max-width: 1.1em;
+    opacity: 1;
+    text-decoration: underline;
+}
+
 /* ---------- content ---------- */
 
 .content {
